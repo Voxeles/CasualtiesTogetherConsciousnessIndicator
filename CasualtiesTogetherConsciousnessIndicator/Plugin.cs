@@ -6,14 +6,12 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using KrokoshaCasualtiesMP;
-using KrokoshaCasualtiesUtils;
 using UnityEngine;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-[BepInDependency("KrokoshaCasualtiesMP")]
+[BepInDependency("KrokoshaCasualtiesMP", BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
 {
 	public const string ModGuid = MyPluginInfo.PLUGIN_GUID;
@@ -26,6 +24,17 @@ public class Plugin : BaseUnityPlugin
 
 	public static Plugin Instance { get; private set; } = null!;
 
+	public static bool MpModLoaded = false;
+	public static Type MpModCon;
+	public static Type MpModNetBody;
+	public static Type MpModNetPlayer;
+	public static Type MpModColor24;
+	public static MethodInfo MpModNetworkIsRunningGetter;
+	public static MethodInfo MpModIsPlayerGetter;
+	public static MethodInfo MpModNetPlayerGetter;
+	public static FieldInfo MpModNetPlayerColorField;
+	public static MethodInfo MpModToColorWithAlpha;
+
 	public static ConfigEntry<bool> ConfigEnabled;
 	public static ConfigEntry<string> ConfigIconFile;
 	public static ConfigEntry<bool> ConfigDoRotate;
@@ -36,10 +45,30 @@ public class Plugin : BaseUnityPlugin
 	public static byte[] FallbackImage;
 	public static Texture2D FallbackTexture;
 
+	private float _t = 0f;
+
 	public void Awake()
 	{
 		Logger = base.Logger;
 		Instance = this;
+
+		foreach (var assembly in AccessTools.AllAssemblies())
+		{
+			if (!assembly.GetName().Name.Equals("KrokoshaCasualtiesMP"))
+				continue;
+			MpModLoaded = true;
+			var mpModScavMultiplayer = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.KrokoshaScavMultiplayer)}", true);
+			MpModCon = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.Con)}", true);
+			MpModNetBody = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.NetBody)}", true);
+			MpModNetPlayer = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.NetPlayer)}", true);
+			MpModColor24 = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.Color24)}", true);
+			MpModNetworkIsRunningGetter = AccessTools.PropertyGetter(mpModScavMultiplayer, nameof(KrokoshaCasualtiesMP.KrokoshaScavMultiplayer.network_system_is_running));
+			MpModIsPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.is_player));
+			MpModNetPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.player));
+			MpModNetPlayerColorField = AccessTools.Field(MpModNetPlayer, nameof(KrokoshaCasualtiesMP.NetPlayer.plrcolor));
+			MpModToColorWithAlpha = AccessTools.Method(MpModColor24, nameof(KrokoshaCasualtiesMP.Color24.ToColorWithAlpha), [typeof(float)]);
+			break;
+		}
 
 		TextureDir = Path.Combine(Paths.PluginPath, $"{ModName}");
 		Directory.CreateDirectory(TextureDir);
@@ -85,14 +114,31 @@ public class Plugin : BaseUnityPlugin
 
 	public void LateUpdate()
 	{
-		if (!ConfigEnabled.Value || !KrokoshaScavMultiplayer.IsNetworkActiveAndIsWorldGenerated())
+		if (!ConfigEnabled.Value)
 			return;
 
-		foreach (var netBody in NetBody.all_instances)
+		_t += Time.unscaledDeltaTime;
+		if (_t < 3f)
+			return;
+		_t = 0f;
+
+		foreach (var body in FindObjectsByType<Body>(FindObjectsSortMode.None))
 		{
-			if (!netBody.is_player || netBody.TryGetComponent<PlayerConsciousnessIcon>(out _))
+			var character = body.transform.parent.gameObject;
+			if (character.TryGetComponent<PlayerConsciousnessIndicator>(out _))
 				continue;
-			netBody.gameObject.AddComponent<PlayerConsciousnessIcon>().nb = netBody;
+			object netPlayer = null;
+			if (MpModLoaded && (bool)MpModNetworkIsRunningGetter.Invoke(null, null))
+			{
+				var netBody = body.GetComponent(MpModNetBody);
+				var isPlayer = (bool)MpModIsPlayerGetter.Invoke(netBody, null);
+				if (!isPlayer)
+					continue;
+				netPlayer = MpModNetPlayerGetter.Invoke(netBody, null);
+			}
+			var indicator = character.AddComponent<PlayerConsciousnessIndicator>();
+			indicator.body = body;
+			indicator.netPlayer = netPlayer;
 		}
 	}
 
@@ -121,16 +167,17 @@ public class Plugin : BaseUnityPlugin
 		}
 		catch (Exception ex)
 		{
-			FallbackImage = Texture2D.whiteTexture.EncodeToPNG();;
+			FallbackImage = Texture2D.whiteTexture.EncodeToPNG();
 			FallbackTexture = Texture2D.whiteTexture;
 			Logger.LogError($"Failed to load asset {assetName}: " + ex);
 		}
 	}
 }
 
-internal class PlayerConsciousnessIcon : MonoBehaviour
+internal class PlayerConsciousnessIndicator : MonoBehaviour
 {
-	public NetBody nb;
+	public Body body;
+	public object netPlayer;
 	private GameObject _icon1;
 	private GameObject _icon2;
 	private GameObject _icon3;
@@ -144,7 +191,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 	private static GameObject _sIconPrefab;
 	private static float _sLastCheckTime = 0f;
 	private static DateTime _sLastWriteTime = DateTime.MinValue;
-	private static List<PlayerConsciousnessIcon> _sInstances = [];
+	private static List<PlayerConsciousnessIndicator> _sInstances = [];
 
 	private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
 	private static readonly Vector3 Icon1Axis = Quaternion.Euler(0f, 0f, 90f) * Icon1Dir;
@@ -153,14 +200,23 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 	private static readonly Vector3 Icon3Dir = Quaternion.Euler(0f, 0f, -10f) * Vector2.right * 1.5f;
 	private static readonly Vector3 Icon3Axis = Quaternion.Euler(0f, 0f, 90f) * Icon3Dir;
 
+	private Color GetPlayerColor()
+	{
+		if (netPlayer == null)
+			return Color.white;
+
+		var color24 = Plugin.MpModNetPlayerColorField.GetValue(netPlayer);
+		return (Color)Plugin.MpModToColorWithAlpha.Invoke(color24, [1.0f]);
+	}
+
 	private void Start()
 	{
 		try
 		{
-			_myColor = Plugin.ConfigDoTint.Value ? (Color)nb.player.plrcolor : Color.white;
+			_myColor = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
-			_pos = (Vector2)nb.body.GetHead().transform.position + Vector2.up * 10f;
+			_pos = (Vector2)body.limbs[0].transform.position + Vector2.up * 10f;
 			EnsureIconPrefab(true);
 			InitIcons();
 			_sInstances.Add(this);
@@ -174,7 +230,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		if (!nb || !nb.is_player || !Plugin.ConfigEnabled.Value)
+		if (!body || !Plugin.ConfigEnabled.Value)
 		{
 			Destroy(this);
 			return;
@@ -182,7 +238,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 
 		EnsureIconPrefab();
 
-		if (nb.body.conscious && !_icon1.activeSelf)
+		if (body.conscious && !_icon1.activeSelf)
 			return;
 
 		UpdatePrefs();
@@ -191,9 +247,9 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 		if (_t > 1)
 			_t = 0;
 
-		var headPos = (Vector2)nb.body.GetHead().transform.position;
+		var headPos = (Vector2)body.limbs[0].transform.position;
 
-		if (nb.body.conscious)
+		if (body.conscious)
 		{
 			var leavePos = headPos + Vector2.up * 4f;
 			_pos = Vector2.Lerp(_pos, leavePos, Time.deltaTime * 10f);
@@ -261,7 +317,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 			_icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
 		}
 
-		var color = Plugin.ConfigDoTint.Value ? (Color)nb.player.plrcolor : Color.white;
+		var color = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
 		if (_myColor != color)
 		{
 			_myColor = color;
@@ -301,7 +357,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 
 		foreach (var inst in _sInstances)
 		{
-			if (!inst || !inst.nb) // don't reinit if it's about to be destroyed
+			if (!inst || !inst.body) // don't reinit if it's about to be destroyed
 				continue;
 			inst.InitIcons();
 		}
@@ -359,7 +415,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 		Destroy(_icon1);
 		Destroy(_icon2);
 		Destroy(_icon3);
-		var parentTransform = nb.chara.transform;
+		var parentTransform = body.transform.parent.gameObject.transform;
 		var color = _myColor;
 		var scale = _myScale;
 		_icon1 = Instantiate(_sIconPrefab, parentTransform, false);

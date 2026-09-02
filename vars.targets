@@ -2,7 +2,7 @@
   <PropertyGroup>
     <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
     <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
 
 
     <!-- If auto-detection misses your install, set this to your game folder -->
