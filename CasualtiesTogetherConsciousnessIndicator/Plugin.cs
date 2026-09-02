@@ -138,7 +138,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 	private float _t = 0f;
 	private bool _myDoRotate;
 	private float _myScale;
-	private bool _myDoTint;
+	private Color _myColor;
 
 	private static Texture2D _sIconTexture;
 	private static GameObject _sIconPrefab;
@@ -157,7 +157,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 	{
 		try
 		{
-			_myDoTint = Plugin.ConfigDoTint.Value;
+			_myColor = Plugin.ConfigDoTint.Value ? (Color)nb.player.plrcolor : Color.white;
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
 			_pos = (Vector2)nb.body.GetHead().transform.position + Vector2.up * 10f;
@@ -261,11 +261,10 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 			_icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
 		}
 
-		var doTint = Plugin.ConfigDoTint.Value;
-		if (_myDoTint != doTint)
+		var color = Plugin.ConfigDoTint.Value ? (Color)nb.player.plrcolor : Color.white;
+		if (_myColor != color)
 		{
-			_myDoTint = doTint;
-			var color = _myDoTint ? (Color)nb.player.plrcolor : Color.white;
+			_myColor = color;
 			_icon1.GetComponent<SpriteRenderer>().color = color;
 			_icon2.GetComponent<SpriteRenderer>().color = color;
 			_icon3.GetComponent<SpriteRenderer>().color = color;
@@ -361,7 +360,7 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 		Destroy(_icon2);
 		Destroy(_icon3);
 		var parentTransform = nb.chara.transform;
-		var color = _myDoTint ? (Color)nb.player.plrcolor : Color.white;
+		var color = _myColor;
 		var scale = _myScale;
 		_icon1 = Instantiate(_sIconPrefab, parentTransform, false);
 		_icon1.transform.localScale = new Vector3(scale, scale, 0);
