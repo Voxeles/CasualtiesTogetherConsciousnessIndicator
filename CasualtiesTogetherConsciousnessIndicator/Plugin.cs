@@ -256,10 +256,9 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 		if (!Mathf.Approximately(_myScale, scale))
 		{
 			_myScale = scale;
-			var localScale = new Vector3(_myScale, _myScale, 0);
-			_icon1.transform.localScale = localScale;
-			_icon2.transform.localScale = localScale;
-			_icon3.transform.localScale = localScale;
+			_icon1.transform.localScale = new Vector3(scale, scale, 0);
+			_icon2.transform.localScale = new Vector3(scale + 0.5f, scale + 0.5f, 0);
+			_icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
 		}
 
 		var doTint = Plugin.ConfigDoTint.Value;
@@ -363,15 +362,15 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 		Destroy(_icon3);
 		var parentTransform = nb.chara.transform;
 		var color = _myDoTint ? (Color)nb.player.plrcolor : Color.white;
-		var localScale = new Vector3(_myScale, _myScale, 0);
+		var scale = _myScale;
 		_icon1 = Instantiate(_sIconPrefab, parentTransform, false);
-		_icon1.transform.localScale = localScale;
+		_icon1.transform.localScale = new Vector3(scale, scale, 0);
 		_icon1.GetComponent<SpriteRenderer>().color = color;
 		_icon2 = Instantiate(_sIconPrefab, parentTransform, false);
-		_icon2.transform.localScale = localScale;
+		_icon2.transform.localScale = new Vector3(scale + 0.5f, scale + 0.5f, 0);
 		_icon2.GetComponent<SpriteRenderer>().color = color;
 		_icon3 = Instantiate(_sIconPrefab, parentTransform, false);
-		_icon3.transform.localScale = localScale;
+		_icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
 		_icon3.GetComponent<SpriteRenderer>().color = color;
 	}
 }
