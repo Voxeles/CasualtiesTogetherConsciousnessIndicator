@@ -1,7 +1,6 @@
 # Casualties: Together Consciousness Indicator
 
-Shows an icon above players who are unconscious.
-Works fully client-side.
+Shows a customizable icon above players who are unconscious. Works in multiplayer and in the vanilla game.
 
 # Installation
 
@@ -13,6 +12,7 @@ Works fully client-side.
 
 1. Shows a custom indicator above players who are unconscious, this indicator can be set to any image you want. The image file is hot-reloaded, no need to restart the game.
 2. Features both a subtle static indicator, and an animated indicator
+3. Works in multiplayer (client-side), without the network running (offline), or without the multiplayer mod installed (vanilla)
 
 # Configuration
 
