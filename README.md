@@ -1,4 +1,4 @@
-# Casualties: Together Consciousness Indicator
+# Casualties: Unknown Consciousness Indicator
 
 Shows a customizable icon above players who are unconscious. Works in multiplayer and in the vanilla game.
 
