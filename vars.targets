@@ -1,10 +1,11 @@
 <Project>
   <PropertyGroup>
-
+    <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
     <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
+    <Version>1.0.1</Version>
 
 
-    <!--If auto-detection misses your install, set this to your game folder.-->
+    <!-- If auto-detection misses your install, set this to your game folder -->
     <!-- E.g. <ManualBaseGamePath>C:\Some\Path\To\Your\Game\Folder</ManualBaseGamePath> -->
     <ManualBaseGamePath>D:\Programs\Steam\steamapps\common\Casualties Unknown Demo</ManualBaseGamePath>
 
@@ -117,6 +118,8 @@
   </Choose>
 
   <PropertyGroup>
+    <BepInExPluginName>$(ProjectName)</BepInExPluginName>
+    <BepInExPluginVersion>$(Version)</BepInExPluginVersion>
     <BepInExDir Condition="'$(BepInExDir)' == '' and '$(BaseGamePath)' != ''">$(BaseGamePath)\BepInEx</BepInExDir>
     <GameAssembliesDir Condition="'$(GameAssembliesDir)' == '' and '$(BaseGamePath)' != ''">$(BaseGamePath)\CasualtiesUnknown_Data\Managed</GameAssembliesDir>
   </PropertyGroup>

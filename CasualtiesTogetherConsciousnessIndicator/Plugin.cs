@@ -12,23 +12,25 @@ using UnityEngine;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
-[BepInPlugin(ModGUID, ModName, ModVersion)]
+[BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 [BepInDependency("KrokoshaCasualtiesMP")]
 public class Plugin : BaseUnityPlugin
 {
-	public const string ModGUID = "cump.consciousness.indicator";
-	public const string ModName = "CasualtiesTogetherConsciousnessIndicator";
-	public const string ModVersion = "1.0.0";
+	public const string ModGuid = MyPluginInfo.PLUGIN_GUID;
+	public const string ModName = MyPluginInfo.PLUGIN_NAME;
+	public const string ModVersion = MyPluginInfo.PLUGIN_VERSION;
 
 	internal new static ManualLogSource Logger;
-	
-	private readonly Harmony _harmony = new(ModGUID);
+
+	private readonly Harmony _harmony = new(ModGuid);
 
 	public static Plugin Instance { get; private set; } = null!;
-	
+
 	public static ConfigEntry<bool> ConfigEnabled;
 	public static ConfigEntry<string> ConfigIconFile;
 	public static ConfigEntry<bool> ConfigDoRotate;
+	public static ConfigEntry<float> ConfigScale;
+	public static ConfigEntry<bool> ConfigDoTint;
 
 	public static string TextureDir;
 	public static byte[] FallbackImage;
@@ -38,10 +40,10 @@ public class Plugin : BaseUnityPlugin
 	{
 		Logger = base.Logger;
 		Instance = this;
-		
+
 		TextureDir = Path.Combine(Paths.PluginPath, $"{ModName}");
 		Directory.CreateDirectory(TextureDir);
-		
+
 		ConfigEnabled = Config.Bind(
 			"General",
 			"Enabled",
@@ -51,31 +53,25 @@ public class Plugin : BaseUnityPlugin
 			"General",
 			"IconFile",
 			"zzz.png",
-			"Which icon file within BepInEx/plugins/ConsciousnessIndicator to use");
+			"Which file within BepInEx/plugins/ConsciousnessIndicator to use as the icon");
 		ConfigDoRotate = Config.Bind(
 			"General",
 			"DoRotate",
 			false,
 			"Set to true to create three rotating icons around an unconscious player");
-		
-		var assembly = Assembly.GetExecutingAssembly();
-		const string assetName = "CasualtiesTogetherConsciousnessIndicator.assets.fallback.png";
-		byte[] assetBytes;
-		using (Stream manifestResourceStream = assembly.GetManifestResourceStream(assetName))
-		{
-			if (manifestResourceStream == null)
-			{
-				Logger.LogError($"Failed to load asset {assetName}!");
-			}
-			assetBytes = new byte[manifestResourceStream.Length];
-			manifestResourceStream.Read(assetBytes, 0, assetBytes.Length);
+		ConfigScale = Config.Bind(
+			"General",
+			"Scale",
+			6f,
+			"The scale of the icons");
+		ConfigDoTint = Config.Bind(
+			"General",
+			"DoTint",
+			true,
+			"Set to true to tint the icons with the player's color");
 
-			FallbackImage = assetBytes;
-		}
-		FallbackTexture = new Texture2D(2, 2);
-		FallbackTexture.LoadImage(FallbackImage);
-		FallbackTexture.filterMode = FilterMode.Point;
-		
+		LoadFallbackTexture();
+
 		_harmony.PatchAll();
 
 		Logger.LogInfo($"Plugin {ModName} is loaded!");
@@ -86,7 +82,7 @@ public class Plugin : BaseUnityPlugin
 		_harmony?.UnpatchSelf();
 		Instance = null;
 	}
-	
+
 	public void LateUpdate()
 	{
 		if (!ConfigEnabled.Value || !KrokoshaScavMultiplayer.IsNetworkActiveAndIsWorldGenerated())
@@ -97,6 +93,37 @@ public class Plugin : BaseUnityPlugin
 			if (!netBody.is_player || netBody.TryGetComponent<PlayerConsciousnessIcon>(out _))
 				continue;
 			netBody.gameObject.AddComponent<PlayerConsciousnessIcon>().nb = netBody;
+		}
+	}
+
+	private static void LoadFallbackTexture()
+	{
+		const string assetName = "CasualtiesTogetherConsciousnessIndicator.assets.fallback.png";
+		try
+		{
+			var assembly = Assembly.GetExecutingAssembly();
+			using (Stream manifestResourceStream = assembly.GetManifestResourceStream(assetName))
+			{
+				if (manifestResourceStream == null)
+					throw new Exception("manifestResourceStream is null");
+
+				var assetBytes = new byte[manifestResourceStream.Length];
+				var read = manifestResourceStream.Read(assetBytes, 0, assetBytes.Length);
+				if (read != assetBytes.Length)
+					throw new Exception("read fewer bytes than expected");
+
+				FallbackImage = assetBytes;
+			}
+
+			FallbackTexture = new Texture2D(2, 2);
+			FallbackTexture.LoadImage(FallbackImage);
+			FallbackTexture.filterMode = FilterMode.Point;
+		}
+		catch (Exception ex)
+		{
+			FallbackImage = Texture2D.whiteTexture.EncodeToPNG();;
+			FallbackTexture = Texture2D.whiteTexture;
+			Logger.LogError($"Failed to load asset {assetName}: " + ex);
 		}
 	}
 }
@@ -110,19 +137,39 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 	private Vector2 _pos;
 	private float _t = 0f;
 	private bool _myDoRotate;
-	private static Texture2D _IconTexture;
-	private static GameObject _IconPrefab;
-	private static float _LastCheckTime = 0f;
-	private static DateTime _LastWriteTime = DateTime.MinValue;
-	private static List<PlayerConsciousnessIcon> _Instances = [];
+	private float _myScale;
+	private bool _myDoTint;
+
+	private static Texture2D _sIconTexture;
+	private static GameObject _sIconPrefab;
+	private static float _sLastCheckTime = 0f;
+	private static DateTime _sLastWriteTime = DateTime.MinValue;
+	private static List<PlayerConsciousnessIcon> _sInstances = [];
+
+	private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
+	private static readonly Vector3 Icon1Axis = Quaternion.Euler(0f, 0f, 90f) * Icon1Dir;
+	private static readonly Vector3 Icon2Dir = Quaternion.Euler(0f, 0f, -20f) * Vector2.right * 1.5f;
+	private static readonly Vector3 Icon2Axis = Quaternion.Euler(0f, 0f, 90f) * Icon2Dir;
+	private static readonly Vector3 Icon3Dir = Quaternion.Euler(0f, 0f, -10f) * Vector2.right * 1.5f;
+	private static readonly Vector3 Icon3Axis = Quaternion.Euler(0f, 0f, 90f) * Icon3Dir;
 
 	private void Start()
 	{
-		_Instances.Add(this);
-		EnsureIconPrefab(true);
-		InitIcons();
-		_myDoRotate = Plugin.ConfigDoRotate.Value;
-		_pos = (Vector2)nb.body.GetHead().transform.position + Vector2.up * 10f;
+		try
+		{
+			_myDoTint = Plugin.ConfigDoTint.Value;
+			_myScale = Plugin.ConfigScale.Value;
+			_myDoRotate = Plugin.ConfigDoRotate.Value;
+			_pos = (Vector2)nb.body.GetHead().transform.position + Vector2.up * 10f;
+			EnsureIconPrefab(true);
+			InitIcons();
+			_sInstances.Add(this);
+		}
+		catch (Exception ex)
+		{
+			Plugin.Logger.LogWarning("PlayerConsciousnessIcon couldn't Start(): " + ex);
+			Destroy(this);
+		}
 	}
 
 	private void LateUpdate()
@@ -135,6 +182,65 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 
 		EnsureIconPrefab();
 
+		if (nb.body.conscious && !_icon1.activeSelf)
+			return;
+
+		UpdatePrefs();
+
+		_t += Time.deltaTime;
+		if (_t > 1)
+			_t = 0;
+
+		var headPos = (Vector2)nb.body.GetHead().transform.position;
+
+		if (nb.body.conscious)
+		{
+			var leavePos = headPos + Vector2.up * 4f;
+			_pos = Vector2.Lerp(_pos, leavePos, Time.deltaTime * 10f);
+
+			if (Mathf.Abs(_pos.y - leavePos.y) <= 1f)
+			{
+				_icon1.SetActive(false);
+				_icon2.SetActive(false);
+				_icon3.SetActive(false);
+				return;
+			}
+		}
+		else
+		{
+			if (!_icon1.activeSelf)
+			{
+				_pos = headPos + Vector2.up * 4f;
+				_icon1.SetActive(true);
+				_icon2.SetActive(_myDoRotate);
+				_icon3.SetActive(_myDoRotate);
+			}
+			var desired = headPos + Vector2.up * 1.5f;
+			_pos = Vector2.Lerp(_pos, desired, Time.deltaTime * 5f);
+		}
+
+		UpdateIcons();
+	}
+
+	private void UpdateIcons()
+	{
+		var pos = _pos;
+
+		if (!Plugin.ConfigDoRotate.Value)
+		{
+			_icon1.transform.position = pos;
+		}
+		else
+		{
+			var angle = _t * 360f;
+			_icon1.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle, Icon1Axis) * Icon1Dir;
+			_icon2.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 120f, Icon2Axis) * Icon2Dir;
+			_icon3.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 240f, Icon3Axis) * Icon3Dir;
+		}
+	}
+
+	private void UpdatePrefs()
+	{
 		var doRotate = Plugin.ConfigDoRotate.Value;
 		if (_myDoRotate != doRotate)
 		{
@@ -146,150 +252,74 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 			}
 		}
 
-		if (nb.body.conscious)
+		var scale = Plugin.ConfigScale.Value;
+		if (!Mathf.Approximately(_myScale, scale))
 		{
-			if (!_icon1.activeSelf)
-				return;
-			
-			var headPos = nb.body.GetHead().transform.position;
-			var position = _pos;
-			var y = position.y;
-			var leavePos = headPos + Vector3.up * 4f;
-			position = Vector3.Lerp(position, leavePos, Time.deltaTime * 10f);
-			position.y = Mathf.Lerp(y, leavePos.y, Time.deltaTime * 10f);
-			_pos = position;
-			
-			_t += Time.deltaTime;
-			if (_t > 1)
-				_t = 0;
-
-			if (!doRotate)
-			{
-				_icon1.transform.position = position;
-			}
-			else
-			{
-				var d = _t;
-				{
-					var v = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0f, 0f, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0f, 360f, d), v2) * v;
-					_icon1.transform.position = (Vector3)_pos + v3;
-				}
-				{
-					var v = Quaternion.Euler(0f, 0f, -20f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0f, 0f, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0f, 360f, d), v2) * v;
-					_icon2.transform.position = (Vector3)_pos + Quaternion.AngleAxis(120f, v2) * v3;
-				}
-				{
-					var v = Quaternion.Euler(0f, 0f, -10f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0f, 0f, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0f, 360f, d), v2) * v;
-					_icon3.transform.position = (Vector3)_pos + Quaternion.AngleAxis(240f, v2) * v3;
-				}
-			}
-			
-			if (Mathf.Abs(position.y - leavePos.y) <= 1f)
-			{
-				_icon1.SetActive(false);
-				_icon2.SetActive(false);
-				_icon3.SetActive(false);
-			}
+			_myScale = scale;
+			var localScale = new Vector3(_myScale, _myScale, 0);
+			_icon1.transform.localScale = localScale;
+			_icon2.transform.localScale = localScale;
+			_icon3.transform.localScale = localScale;
 		}
-		else
+
+		var doTint = Plugin.ConfigDoTint.Value;
+		if (_myDoTint != doTint)
 		{
-			var headPos = nb.body.GetHead().transform.position;
-			var position = _pos;
-			var y = position.y;
-			if (!_icon1.activeSelf)
-			{
-				position = headPos + Vector3.up * 4f;
-				y = position.y;
-				_icon1.SetActive(true);
-				_icon2.SetActive(doRotate);
-				_icon3.SetActive(doRotate);
-			}
-			var desired = headPos + Vector3.up * 1.5f;
-			position = Vector3.Lerp(position, desired, Time.deltaTime * 5f);
-			position.y = Mathf.Lerp(y, desired.y, Time.deltaTime * 5f);
-			_pos = position;
-
-			_t += Time.deltaTime;
-			if (_t > 1)
-				_t = 0;
-
-			if (!doRotate)
-			{
-				_icon1.transform.position = _pos;
-			}
-			else
-			{
-				var d = _t;
-				{
-					var v = Quaternion.Euler(0, 0, -15f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0, 0, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0, 360f, d), v2) * v;
-					_icon1.transform.position = (Vector3)_pos + v3;
-				}
-				{
-					var v = Quaternion.Euler(0, 0, -20f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0, 0, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0, 360f, d), v2) * v;
-					_icon2.transform.position = (Vector3)_pos + Quaternion.AngleAxis(120f, v2) * v3;
-				}
-				{
-					var v = Quaternion.Euler(0, 0, -10f) * Vector2.right * 1.5f;
-					var v2 = Quaternion.Euler(0, 0, 90f) * v;
-					var v3 = Quaternion.AngleAxis(Mathf.Lerp(0, 360f, d), v2) * v;
-					_icon3.transform.position = (Vector3)_pos + Quaternion.AngleAxis(240f, v2) * v3;
-				}
-			}
+			_myDoTint = doTint;
+			var color = _myDoTint ? (Color)nb.player.plrcolor : Color.white;
+			_icon1.GetComponent<SpriteRenderer>().color = color;
+			_icon2.GetComponent<SpriteRenderer>().color = color;
+			_icon3.GetComponent<SpriteRenderer>().color = color;
 		}
 	}
 
 	private void OnDestroy()
 	{
-		_Instances.Remove(this);
+		_sInstances.Remove(this);
 		Destroy(_icon1);
 		Destroy(_icon2);
 		Destroy(_icon3);
 	}
-	
+
 	private static void EnsureIconPrefab(bool force = false)
 	{
 		var texture = LoadTexture(force);
-		if (texture == _IconTexture && _IconPrefab != null) 
+		if (texture == _sIconTexture && _sIconPrefab != null)
 			return;
-		if (_IconTexture != Plugin.FallbackTexture)
-			Destroy(_IconTexture);
-		_IconTexture = texture;
 
-		Destroy(_IconPrefab?.GetComponent<SpriteRenderer>().sprite);
-		Destroy(_IconPrefab);
-		_IconPrefab = new GameObject("PlayerConsciousnessIcon");
-		var sprRenderer = _IconPrefab.AddComponent<SpriteRenderer>();
+		if (_sIconTexture != Plugin.FallbackTexture && _sIconTexture != texture)
+			Destroy(_sIconTexture);
+		_sIconTexture = texture;
+
+		Destroy(_sIconPrefab?.GetComponent<SpriteRenderer>().sprite);
+		Destroy(_sIconPrefab);
+		_sIconPrefab = new GameObject("PlayerConsciousnessIcon");
+		var sprRenderer = _sIconPrefab.AddComponent<SpriteRenderer>();
 		sprRenderer.sortingOrder = 6001;
-		sprRenderer.sprite = Sprite.Create(_IconTexture, new Rect(0, 0, _IconTexture.width, _IconTexture.height), new Vector2(0.5f, 0.5f));
-		_IconPrefab.transform.SetParent(null);
-		DontDestroyOnLoad(_IconPrefab);
-		_IconPrefab.SetActive(false);
+		sprRenderer.sprite = Sprite.Create(_sIconTexture, new Rect(0, 0, _sIconTexture.width, _sIconTexture.height), new Vector2(0.5f, 0.5f));
+		_sIconPrefab.transform.SetParent(null);
+		DontDestroyOnLoad(_sIconPrefab);
+		_sIconPrefab.SetActive(false);
 
-		foreach (var inst in _Instances)
-			if (inst.nb) inst.InitIcons();
+		foreach (var inst in _sInstances)
+		{
+			if (!inst || !inst.nb) // don't reinit if it's about to be destroyed
+				continue;
+			inst.InitIcons();
+		}
 	}
 
 	private static Texture2D LoadTexture(bool force = false)
 	{
-		if (Time.time - _LastCheckTime < 3f && !force)
-			return _IconTexture;
-		_LastCheckTime = Time.time;
-		
+		if (Time.realtimeSinceStartup - _sLastCheckTime < 3f && !force)
+			return _sIconTexture;
+		_sLastCheckTime = Time.realtimeSinceStartup;
+
 		var texturePath = "";
 		try
 		{
 			texturePath = Path.Combine(Plugin.TextureDir, Plugin.ConfigIconFile.Value);
-			
+
 			if (!File.Exists(texturePath))
 			{
 				Plugin.Logger.LogWarning(
@@ -300,14 +330,14 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 			}
 
 			var writeTime = File.GetLastWriteTime(texturePath);
-			if (writeTime == _LastWriteTime)
-				return _IconTexture;
-			_LastWriteTime = writeTime;
+			if (writeTime == _sLastWriteTime)
+				return _sIconTexture;
+			_sLastWriteTime = writeTime;
 
 			var bytes = File.ReadAllBytes(texturePath);
 			if (bytes.Length < 2)
 				return Plugin.FallbackTexture;
-			
+
 			var newTexture = new Texture2D(2, 2);
 			bool success = newTexture.LoadImage(bytes);
 			if (!success)
@@ -325,23 +355,23 @@ internal class PlayerConsciousnessIcon : MonoBehaviour
 			return Plugin.FallbackTexture;
 		}
 	}
-	
+
 	private void InitIcons()
 	{
 		Destroy(_icon1);
 		Destroy(_icon2);
 		Destroy(_icon3);
-		_icon1 = Instantiate(_IconPrefab, nb.body.transform, false);
-		_icon1.transform.localScale = Vector3.one * 5f;
-		_icon1.GetComponent<SpriteRenderer>().color = nb.player.plrcolor;
-		_icon1.SetActive(false);
-		_icon2 = Instantiate(_IconPrefab, nb.body.transform, false);
-		_icon2.transform.localScale = Vector3.one * 5.5f;
-		_icon2.GetComponent<SpriteRenderer>().color = nb.player.plrcolor;
-		_icon2.SetActive(false);
-		_icon3 = Instantiate(_IconPrefab, nb.body.transform, false);
-		_icon3.transform.localScale = Vector3.one * 4.5f;
-		_icon3.GetComponent<SpriteRenderer>().color = nb.player.plrcolor;
-		_icon3.SetActive(false);
+		var parentTransform = nb.chara.transform;
+		var color = _myDoTint ? (Color)nb.player.plrcolor : Color.white;
+		var localScale = new Vector3(_myScale, _myScale, 0);
+		_icon1 = Instantiate(_sIconPrefab, parentTransform, false);
+		_icon1.transform.localScale = localScale;
+		_icon1.GetComponent<SpriteRenderer>().color = color;
+		_icon2 = Instantiate(_sIconPrefab, parentTransform, false);
+		_icon2.transform.localScale = localScale;
+		_icon2.GetComponent<SpriteRenderer>().color = color;
+		_icon3 = Instantiate(_sIconPrefab, parentTransform, false);
+		_icon3.transform.localScale = localScale;
+		_icon3.GetComponent<SpriteRenderer>().color = color;
 	}
 }

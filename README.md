@@ -1,6 +1,6 @@
 # Casualties: Together Consciousness Indicator
 
-Shows an exlamation mark above players who are unconscious.
+Shows an icon above players who are unconscious.
 Works fully client-side.
 
 # Installation
@@ -21,12 +21,11 @@ or in-game through the console (see commands below).
 
 # Commands
 
-1. `ConsciousnessIndicatorEnabled`
-- Enable/Disable the indicator
-2. `ConsciousnessIndicatorIconFile`
-- Choose which image within BepInEx/plugins/CasualtiesTogetherConsciousnessIndicator to use as the indicator
-3. `ConsciousnessIndicatorDoRotate`
-- Enable the animated indicator
+1. `ConsciousnessIndicatorEnabled` - Enable/Disable the indicator
+2. `ConsciousnessIndicatorIconFile` - Choose which image within BepInEx/plugins/CasualtiesTogetherConsciousnessIndicator to use as the indicator icon
+3. `ConsciousnessIndicatorDoRotate` - Enable/Disable the animated indicator
+4. `ConsciousnessIndicatorScale` - Change the scale of the indicator
+5. `ConsciousnessIndicatorDoTint` - Enable/Disable the icon being tinted with the player's color
 
 # Shoutouts
 
