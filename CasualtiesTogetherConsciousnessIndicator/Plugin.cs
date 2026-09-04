@@ -183,7 +183,9 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private GameObject _icon2;
 	private GameObject _icon3;
 	private Vector2 _pos;
-	private float _t;
+	private float _floatInT = 0f;
+	private float _floatOutT = 0f;
+	private float _rotateT = Random.value;
 	private bool _myDoRotate;
 	private float _myScale;
 	private Color _myColor;
@@ -214,7 +216,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	{
 		try
 		{
-			_t = Random.value;
 			_myColor = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
@@ -255,18 +256,23 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
 		UpdatePrefs();
 
-		_t += Time.deltaTime;
-		if (_t > 1)
-			_t = 0;
+		_rotateT += Time.deltaTime;
+		if (_rotateT > 1)
+			_rotateT %= 1;
 
 		var headPos = (Vector2)body.limbs[0].transform.position;
 
 		if (body.conscious)
 		{
-			var leavePos = headPos + Vector2.up * 4f;
-			_pos = Vector2.Lerp(_pos, leavePos, Time.deltaTime * 10f);
+			_floatInT = 0f;
+			_floatOutT += Time.deltaTime;
+			var targetPos = headPos;
+			targetPos.y += 5f;
 
-			if (Mathf.Abs(_pos.y - leavePos.y) <= 1f)
+			_pos.x = targetPos.x;
+			_pos.y = Mathf.Lerp(_pos.y, targetPos.y, Time.deltaTime * 10f);
+
+			if (targetPos.y - _pos.y is <= 1f or >= 8f || _floatOutT >= 2f)
 			{
 				_icon1.SetActive(false);
 				_icon2.SetActive(false);
@@ -276,15 +282,32 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		}
 		else
 		{
-			if (!_icon1.activeSelf)
+			_floatOutT = 0f;
+			var targetPos = headPos;
+			targetPos.y += 1.5f;
+
+			if (_floatInT >= 2f)
 			{
-				_pos = headPos + Vector2.up * 4f;
-				_icon1.SetActive(true);
-				_icon2.SetActive(_myDoRotate);
-				_icon3.SetActive(_myDoRotate);
+				_pos = targetPos;
 			}
-			var desired = headPos + Vector2.up * 1.5f;
-			_pos = Vector2.Lerp(_pos, desired, Time.deltaTime * 5f);
+			else
+			{
+				_floatInT += Time.deltaTime;
+
+				if (!_icon1.activeSelf)
+				{
+					_floatInT = 0;
+					_pos = headPos + Vector2.up * 4f;
+					_icon1.SetActive(true);
+					_icon2.SetActive(_myDoRotate);
+					_icon3.SetActive(_myDoRotate);
+				}
+
+				_pos.x = targetPos.x;
+				_pos.y = Mathf.Lerp(_pos.y, targetPos.y, Time.deltaTime * 5f);
+				if (Mathf.Abs(_pos.y - targetPos.y) is <= 0.25f or >= 8f)
+					_floatInT = 2f;
+			}
 		}
 
 		UpdateIcons();
@@ -300,7 +323,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		}
 		else
 		{
-			var angle = _t * 360f;
+			var angle = _rotateT * 360f;
 			_icon1.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle, Icon1Axis) * Icon1Dir;
 			_icon2.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 120f, Icon2Axis) * Icon2Dir;
 			_icon3.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 240f, Icon3Axis) * Icon3Dir;
