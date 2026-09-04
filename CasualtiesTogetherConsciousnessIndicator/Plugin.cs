@@ -241,6 +241,16 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		if (body.conscious && !_icon1.activeSelf)
 			return;
 
+		if (!body.alive)
+		{
+			if (!_icon1.activeSelf)
+				return;
+			_icon1.SetActive(false);
+			_icon2.SetActive(false);
+			_icon3.SetActive(false);
+			return;
+		}
+
 		UpdatePrefs();
 
 		_t += Time.deltaTime;
