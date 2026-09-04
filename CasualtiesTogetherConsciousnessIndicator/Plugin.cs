@@ -195,11 +195,11 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private static List<PlayerConsciousnessIndicator> _sInstances = [];
 
 	private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
-	private static readonly Vector3 Icon1Axis = Quaternion.Euler(0f, 0f, 90f) * Icon1Dir;
+	private static readonly Vector3 Icon1Axis = Quaternion.Euler(5f, 0f, 90f) * Icon1Dir;
 	private static readonly Vector3 Icon2Dir = Quaternion.Euler(0f, 0f, -20f) * Vector2.right * 1.5f;
-	private static readonly Vector3 Icon2Axis = Quaternion.Euler(0f, 0f, 90f) * Icon2Dir;
+	private static readonly Vector3 Icon2Axis = Quaternion.Euler(5f, 0f, 90f) * Icon2Dir;
 	private static readonly Vector3 Icon3Dir = Quaternion.Euler(0f, 0f, -10f) * Vector2.right * 1.5f;
-	private static readonly Vector3 Icon3Axis = Quaternion.Euler(0f, 0f, 90f) * Icon3Dir;
+	private static readonly Vector3 Icon3Axis = Quaternion.Euler(5f, 0f, 90f) * Icon3Dir;
 
 	private Color GetPlayerColor()
 	{
