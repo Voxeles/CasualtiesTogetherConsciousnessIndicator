@@ -7,6 +7,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
@@ -182,7 +183,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private GameObject _icon2;
 	private GameObject _icon3;
 	private Vector2 _pos;
-	private float _t = 0f;
+	private float _t;
 	private bool _myDoRotate;
 	private float _myScale;
 	private Color _myColor;
@@ -213,6 +214,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	{
 		try
 		{
+			_t = Random.value;
 			_myColor = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
