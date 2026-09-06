@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
+    <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
+    <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
+    <Version>1.0.3</Version>
     <AssemblyName>$(ProjectName)</AssemblyName>
     <Product>$(ProjectName)</Product>
+    <BepInExPluginName>$(ProjectName)</BepInExPluginName>
+    <BepInExPluginVersion>$(Version)</BepInExPluginVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <RestoreAdditionalProjectSources>
