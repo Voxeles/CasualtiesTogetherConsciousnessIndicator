@@ -286,6 +286,15 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			var targetPos = headPos;
 			targetPos.y += 1.5f;
 
+			if (!_icon1.activeSelf)
+			{
+				_floatInT = 0;
+				_pos = headPos + Vector2.up * 4f;
+				_icon1.SetActive(true);
+				_icon2.SetActive(_myDoRotate);
+				_icon3.SetActive(_myDoRotate);
+			}
+
 			if (_floatInT >= 2f)
 			{
 				_pos = targetPos;
@@ -293,15 +302,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			else
 			{
 				_floatInT += Time.deltaTime;
-
-				if (!_icon1.activeSelf)
-				{
-					_floatInT = 0;
-					_pos = headPos + Vector2.up * 4f;
-					_icon1.SetActive(true);
-					_icon2.SetActive(_myDoRotate);
-					_icon3.SetActive(_myDoRotate);
-				}
 
 				_pos.x = targetPos.x;
 				_pos.y = Mathf.Lerp(_pos.y, targetPos.y, Time.deltaTime * 5f);
