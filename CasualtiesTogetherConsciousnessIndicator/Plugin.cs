@@ -189,12 +189,12 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private bool _myDoRotate;
 	private float _myScale;
 	private Color _myColor;
+	private GameObject _myIconPrefab;
 
 	private static Texture2D _sIconTexture;
 	private static GameObject _sIconPrefab;
 	private static float _sLastCheckTime = 0f;
 	private static DateTime _sLastWriteTime = DateTime.MinValue;
-	private static List<PlayerConsciousnessIndicator> _sInstances = [];
 
 	private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
 	private static readonly Vector3 Icon1Axis = Quaternion.Euler(5f, 0f, 90f) * Icon1Dir;
@@ -220,9 +220,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
 			_pos = (Vector2)body.limbs[0].transform.position + Vector2.up * 10f;
-			EnsureIconPrefab();
-			InitIcons();
-			_sInstances.Add(this);
+			_myIconPrefab = _sIconPrefab;
+			EnsureIcons();
 		}
 		catch (Exception ex)
 		{
@@ -239,7 +238,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			return;
 		}
 
-		EnsureIconPrefab();
+		EnsureIcons();
 
 		if (body.conscious && !_icon1.activeSelf)
 			return;
@@ -364,10 +363,20 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
 	private void OnDestroy()
 	{
-		_sInstances.Remove(this);
 		Destroy(_icon1);
 		Destroy(_icon2);
 		Destroy(_icon3);
+	}
+
+	private void EnsureIcons()
+	{
+		EnsureIconPrefab();
+
+		if (_icon1 != null && _myIconPrefab == _sIconPrefab)
+			return;
+
+		_myIconPrefab = _sIconPrefab;
+		InitIcons();
 	}
 
 	private static void EnsureIconPrefab()
@@ -395,13 +404,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		_sIconPrefab.transform.SetParent(null);
 		DontDestroyOnLoad(_sIconPrefab);
 		_sIconPrefab.SetActive(false);
-
-		foreach (var inst in _sInstances)
-		{
-			if (!inst || !inst.body) // don't reinit if it's about to be destroyed
-				continue;
-			inst.InitIcons();
-		}
 	}
 
 	private static Texture2D LoadTexture()
@@ -455,13 +457,14 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		var parentTransform = body.transform.parent.gameObject.transform;
 		var color = _myColor;
 		var scale = _myScale;
-		_icon1 = Instantiate(_sIconPrefab, parentTransform, false);
+		var prefab = _myIconPrefab;
+		_icon1 = Instantiate(prefab, parentTransform, false);
 		_icon1.transform.localScale = new Vector3(scale, scale, 0);
 		_icon1.GetComponent<SpriteRenderer>().color = color;
-		_icon2 = Instantiate(_sIconPrefab, parentTransform, false);
+		_icon2 = Instantiate(prefab, parentTransform, false);
 		_icon2.transform.localScale = new Vector3(scale + 0.5f, scale + 0.5f, 0);
 		_icon2.GetComponent<SpriteRenderer>().color = color;
-		_icon3 = Instantiate(_sIconPrefab, parentTransform, false);
+		_icon3 = Instantiate(prefab, parentTransform, false);
 		_icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
 		_icon3.GetComponent<SpriteRenderer>().color = color;
 	}
