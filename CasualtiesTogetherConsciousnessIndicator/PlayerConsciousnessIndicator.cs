@@ -73,7 +73,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		if (body.conscious && !_icon1.activeSelf)
 			return;
 
-		if (!body.alive)
+		if (!body.alive || body.sleeping)
 		{
 			if (!_icon1.activeSelf)
 				return;
