@@ -256,10 +256,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
 		UpdatePrefs();
 
-		_rotateT += Time.deltaTime;
-		if (_rotateT > 1)
-			_rotateT %= 1;
-
 		var headPos = (Vector2)body.limbs[0].transform.position;
 
 		if (body.conscious)
@@ -315,7 +311,11 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
 	private void UpdateIcons()
 	{
-		var pos = _pos;
+		_rotateT += Time.deltaTime;
+		if (_rotateT > 1)
+			_rotateT %= 1;
+
+		var pos = (Vector3)_pos;
 
 		if (!Plugin.ConfigDoRotate.Value)
 		{
@@ -324,9 +324,9 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		else
 		{
 			var angle = _rotateT * 360f;
-			_icon1.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle, Icon1Axis) * Icon1Dir;
-			_icon2.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 120f, Icon2Axis) * Icon2Dir;
-			_icon3.transform.position = (Vector3)pos + Quaternion.AngleAxis(angle + 240f, Icon3Axis) * Icon3Dir;
+			_icon1.transform.position = pos + Quaternion.AngleAxis(angle, Icon1Axis) * Icon1Dir;
+			_icon2.transform.position = pos + Quaternion.AngleAxis(angle + 120f, Icon2Axis) * Icon2Dir;
+			_icon3.transform.position = pos + Quaternion.AngleAxis(angle + 240f, Icon3Axis) * Icon3Dir;
 		}
 	}
 
