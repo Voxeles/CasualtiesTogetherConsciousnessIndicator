@@ -220,7 +220,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			_myScale = Plugin.ConfigScale.Value;
 			_myDoRotate = Plugin.ConfigDoRotate.Value;
 			_pos = (Vector2)body.limbs[0].transform.position + Vector2.up * 10f;
-			EnsureIconPrefab(true);
+			EnsureIconPrefab();
 			InitIcons();
 			_sInstances.Add(this);
 		}
@@ -370,10 +370,16 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		Destroy(_icon3);
 	}
 
-	private static void EnsureIconPrefab(bool force = false)
+	private static void EnsureIconPrefab()
 	{
-		var texture = LoadTexture(force);
-		if (texture == _sIconTexture && _sIconPrefab != null)
+		var force = _sIconPrefab == null;
+
+		if (Time.realtimeSinceStartup - _sLastCheckTime < 3f && !force)
+			return;
+		_sLastCheckTime = Time.realtimeSinceStartup;
+
+		var texture = LoadTexture();
+		if (texture == _sIconTexture && !force)
 			return;
 
 		if (_sIconTexture != Plugin.FallbackTexture && _sIconTexture != texture)
@@ -398,12 +404,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		}
 	}
 
-	private static Texture2D LoadTexture(bool force = false)
+	private static Texture2D LoadTexture()
 	{
-		if (Time.realtimeSinceStartup - _sLastCheckTime < 3f && !force)
-			return _sIconTexture;
-		_sLastCheckTime = Time.realtimeSinceStartup;
-
 		var texturePath = "";
 		try
 		{
