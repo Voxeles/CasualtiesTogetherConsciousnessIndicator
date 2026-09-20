@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -24,7 +23,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private static Texture2D _sIconTexture;
 	private static GameObject _sIconPrefab;
 	private static float _sLastCheckTime = 0f;
-	private static DateTime _sLastWriteTime = DateTime.MinValue;
 
 	private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
 	private static readonly Vector3 Icon1Axis = Quaternion.Euler(5f, 0f, 90f) * Icon1Dir;
@@ -217,12 +215,10 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 			return;
 		_sLastCheckTime = Time.realtimeSinceStartup;
 
-		var texture = LoadTexture();
+		var texture = IconTextureLoader.LoadTexture();
 		if (texture == _sIconTexture && !force)
 			return;
 
-		if (_sIconTexture != Plugin.FallbackTexture && _sIconTexture != texture)
-			Destroy(_sIconTexture);
 		_sIconTexture = texture;
 
 		Destroy(_sIconPrefab?.GetComponent<SpriteRenderer>().sprite);
@@ -234,49 +230,6 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		_sIconPrefab.transform.SetParent(null);
 		DontDestroyOnLoad(_sIconPrefab);
 		_sIconPrefab.SetActive(false);
-	}
-
-	private static Texture2D LoadTexture()
-	{
-		var texturePath = "";
-		try
-		{
-			texturePath = Path.Combine(Plugin.TextureDir, Plugin.ConfigIconFile.Value);
-
-			if (!File.Exists(texturePath))
-			{
-				Plugin.Logger.LogWarning(
-					$"Found no icon. Set {texturePath} as your icon.");
-				ConsoleScript.instance.LogToConsole(
-					$"<color=yellow>[{Plugin.ModName}] Found no icon. Set {texturePath} as your icon.</color>");
-				File.WriteAllBytes(texturePath, Plugin.FallbackImage);
-			}
-
-			var writeTime = File.GetLastWriteTime(texturePath);
-			if (writeTime == _sLastWriteTime)
-				return _sIconTexture;
-			_sLastWriteTime = writeTime;
-
-			var bytes = File.ReadAllBytes(texturePath);
-			if (bytes.Length < 2)
-				return Plugin.FallbackTexture;
-
-			var newTexture = new Texture2D(2, 2);
-			bool success = newTexture.LoadImage(bytes);
-			if (!success)
-			{
-				Destroy(newTexture);
-				return Plugin.FallbackTexture;
-			}
-			newTexture.filterMode = FilterMode.Point;
-			return newTexture;
-		}
-		catch (Exception ex)
-		{
-			Plugin.Logger.LogWarning($"Failed to load {texturePath}: " + ex.Message);
-			ConsoleScript.instance.LogToConsole($"<color=yellow>[{Plugin.ModName}] Failed to load {texturePath}:\n\t" + ex.Message + "</color>");
-			return Plugin.FallbackTexture;
-		}
 	}
 
 	private void InitIcons()

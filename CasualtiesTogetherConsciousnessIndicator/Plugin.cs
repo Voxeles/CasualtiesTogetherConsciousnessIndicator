@@ -43,8 +43,6 @@ public class Plugin : BaseUnityPlugin
 	public static ConfigEntry<bool> ConfigDoTint;
 
 	public static string TextureDir;
-	public static byte[] FallbackImage;
-	public static Texture2D FallbackTexture;
 
 	private float _t = 0f;
 
@@ -100,8 +98,6 @@ public class Plugin : BaseUnityPlugin
 			true,
 			"Set to true to tint the icons with the player's color");
 
-		LoadFallbackTexture();
-
 		_harmony.PatchAll();
 
 		Logger.LogInfo($"Plugin {ModName} is loaded!");
@@ -143,34 +139,15 @@ public class Plugin : BaseUnityPlugin
 		}
 	}
 
-	private static void LoadFallbackTexture()
+	internal static void PrintWarning(string message)
 	{
-		const string assetName = "CasualtiesTogetherConsciousnessIndicator.assets.fallback.png";
-		try
-		{
-			var assembly = Assembly.GetExecutingAssembly();
-			using (Stream manifestResourceStream = assembly.GetManifestResourceStream(assetName))
-			{
-				if (manifestResourceStream == null)
-					throw new Exception("manifestResourceStream is null");
+		Logger.LogWarning(message);
+		ConsoleScript.instance.LogToConsole($"<color=yellow>[{Plugin.ModName}] {message}</color>");
+	}
 
-				var assetBytes = new byte[manifestResourceStream.Length];
-				var read = manifestResourceStream.Read(assetBytes, 0, assetBytes.Length);
-				if (read != assetBytes.Length)
-					throw new Exception("read fewer bytes than expected");
-
-				FallbackImage = assetBytes;
-			}
-
-			FallbackTexture = new Texture2D(2, 2);
-			FallbackTexture.LoadImage(FallbackImage);
-			FallbackTexture.filterMode = FilterMode.Point;
-		}
-		catch (Exception ex)
-		{
-			FallbackImage = Texture2D.whiteTexture.EncodeToPNG();
-			FallbackTexture = Texture2D.whiteTexture;
-			Logger.LogError($"Failed to load asset {assetName}: " + ex);
-		}
+	internal static void PrintError(string message)
+	{
+		Logger.LogError(message);
+		ConsoleScript.instance.LogToConsole($"<color=red>[{Plugin.ModName}] {message}</color>");
 	}
 }
