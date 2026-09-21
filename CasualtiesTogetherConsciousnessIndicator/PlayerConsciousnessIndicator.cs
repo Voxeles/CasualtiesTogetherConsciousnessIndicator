@@ -213,8 +213,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
         {
             _myScale = scale;
             _icon1.transform.localScale = new Vector3(scale, scale, 0);
-            _icon2.transform.localScale = new Vector3(scale + 0.5f, scale + 0.5f, 0);
-            _icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
+            _icon2.transform.localScale = new Vector3(scale + 0.3f, scale + 0.3f, 0);
+            _icon3.transform.localScale = new Vector3(scale - 0.3f, scale - 0.3f, 0);
         }
 
         var color = _settings.DoTint.Value ? GetPlayerColor() : Color.white;
