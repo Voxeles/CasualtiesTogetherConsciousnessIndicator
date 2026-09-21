@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
@@ -36,11 +33,8 @@ public class Plugin : BaseUnityPlugin
     public static FieldInfo MpModNetPlayerColorField;
     public static MethodInfo MpModToColorWithAlpha;
 
-    public static ConfigEntry<bool> ConfigEnabled;
-    public static ConfigEntry<string> ConfigIconFile;
-    public static ConfigEntry<AnimationType> ConfigAnimationType;
-    public static ConfigEntry<float> ConfigScale;
-    public static ConfigEntry<bool> ConfigDoTint;
+    internal static IndicatorSettings Unconscious;
+    internal static IndicatorSettings Sleeping;
 
     public static string TextureDir;
 
@@ -72,31 +66,8 @@ public class Plugin : BaseUnityPlugin
         TextureDir = Path.Combine(Paths.PluginPath, $"{ModName}");
         Directory.CreateDirectory(TextureDir);
 
-        ConfigEnabled = Config.Bind(
-            "General",
-            "Enabled",
-            true,
-            "Set to true to enable the consciousness indicator");
-        ConfigIconFile = Config.Bind(
-            "General",
-            "IconFile",
-            "zzz.png",
-            "Which file within BepInEx/plugins/ConsciousnessIndicator to use as the icon");
-        ConfigAnimationType = Config.Bind(
-            "General",
-            "AnimationType",
-            AnimationType.None,
-            "How to animate the icon above the player\nNone: simply show up above the player\nRotateAround: Three rotating icons around their head\nJumping: Moving up and down above their head");
-        ConfigScale = Config.Bind(
-            "General",
-            "Scale",
-            6f,
-            "The scale of the icons");
-        ConfigDoTint = Config.Bind(
-            "General",
-            "DoTint",
-            true,
-            "Set to true to tint the icons with the player's color");
+        Unconscious = new IndicatorSettings(Config, "General", "!!.png");
+        Sleeping = new IndicatorSettings(Config, "Sleeping", "zzz.png");
 
         _harmony.PatchAll();
 
@@ -106,12 +77,22 @@ public class Plugin : BaseUnityPlugin
     public void OnDestroy()
     {
         _harmony?.UnpatchSelf();
+        Unconscious?.Icon.Dispose();
+        Sleeping?.Icon.Dispose();
         Instance = null;
+    }
+
+    public void Update()
+    {
+        if (Unconscious.Enabled.Value)
+            Unconscious.Icon.ReloadIfNeeded(Unconscious.IconFile.Value);
+        if (Sleeping.Enabled.Value)
+            Sleeping.Icon.ReloadIfNeeded(Sleeping.IconFile.Value);
     }
 
     public void LateUpdate()
     {
-        if (!ConfigEnabled.Value)
+        if (!Unconscious.Enabled.Value && !Sleeping.Enabled.Value)
             return;
 
         _t += Time.unscaledDeltaTime;
@@ -128,6 +109,8 @@ public class Plugin : BaseUnityPlugin
             if (MpModLoaded && (bool)MpModNetworkIsRunningGetter.Invoke(null, null))
             {
                 var netBody = body.GetComponent(MpModNetBody);
+                if (netBody == null)
+                    continue;
                 var isPlayer = (bool)MpModIsPlayerGetter.Invoke(netBody, null);
                 if (!isPlayer)
                     continue;
@@ -142,12 +125,12 @@ public class Plugin : BaseUnityPlugin
     internal static void PrintWarning(string message)
     {
         Logger.LogWarning(message);
-        ConsoleScript.instance.LogToConsole($"<color=yellow>[{Plugin.ModName}] {message}</color>");
+        ConsoleScript.instance?.LogToConsole($"<color=yellow>[{Plugin.ModName}] {message}</color>");
     }
 
     internal static void PrintError(string message)
     {
         Logger.LogError(message);
-        ConsoleScript.instance.LogToConsole($"<color=red>[{Plugin.ModName}] {message}</color>");
+        ConsoleScript.instance?.LogToConsole($"<color=red>[{Plugin.ModName}] {message}</color>");
     }
 }

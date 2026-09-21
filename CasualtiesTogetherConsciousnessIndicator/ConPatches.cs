@@ -1,17 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
-using KrokoshaCasualtiesMP;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
 [HarmonyPatch]
 internal class ConPatches
 {
-    private static List<string> _files = [];
+    private static readonly List<string> _files = [];
+    private static readonly List<string> _indicators = ["default", "sleeping"];
 
     private static MethodBase TargetMethod()
     {
@@ -39,104 +39,112 @@ internal class ConPatches
         }
     }
 
+    private static IndicatorSettings GetSettings(string[] args, int requiredArguments)
+    {
+        ConsoleScript.instance.CheckArgumentCount(args, requiredArguments);
+        if (args.Length > 3)
+            throw new Exception("Expected an indicator (default or sleeping) followed by a value.");
+
+        return args[1].ToLowerInvariant() switch
+        {
+            "default" => Plugin.Unconscious,
+            "sleeping" => Plugin.Sleeping,
+            _ => throw new Exception($"Unknown indicator \"{args[1]}\". Choose default or sleeping.")
+        };
+    }
+
     private static void Postfix()
     {
-        var command = new Command(
+        UpdateFiles();
+        ConsoleScript.Commands.Add(new Command(
             "ConsciousnessIndicatorEnabled",
-            "Enable the consciousness indicator",
+            "Enable or disable the selected indicator",
             args =>
             {
-                bool result;
-                if (args.Length < 2)
-                    result = !Plugin.ConfigEnabled.Value;
-                else
-                    result = bool.Parse(args[1]);
-                Plugin.ConfigEnabled.Value = result;
-                ConsoleScript.instance.LogToConsole($"Consciousness indicator {(result ? "enabled" : "disabled")}!");
+                var settings = GetSettings(args, 1);
+                var result = args.Length < 3 ? !settings.Enabled.Value : bool.Parse(args[2]);
+                settings.Enabled.Value = result;
+                ConsoleScript.instance.LogToConsole($"{args[1]} indicator {(result ? "enabled" : "disabled")}!");
             },
-            null,
+            new Dictionary<int, List<string>> {
+                {0, _indicators}
+            },
+            ("indicator", "default or sleeping"),
             ("bool", "optional, leave empty to toggle")
-        );
-        ConsoleScript.Commands.Add(command);
+        ));
 
-        command = new Command(
+        ConsoleScript.Commands.Add(new Command(
             "ConsciousnessIndicatorIconFile",
-            $"Which file within BepinEx/plugins/{Plugin.ModName} to use as the indicator icon",
+            $"Which file within BepInEx/plugins/{Plugin.ModName} to use as the selected indicator icon",
             args =>
             {
+                var settings = GetSettings(args, 2);
                 UpdateFiles();
-
-                ConsoleScript.instance.CheckArgumentCount(args, 1);
-
-                var path = Path.Combine(Plugin.TextureDir, args[1]);
-
+                var path = Path.Combine(Plugin.TextureDir, args[2]);
                 if (!File.Exists(path))
                     throw new Exception($"\nFile {path} does not exist!");
 
-                Plugin.ConfigIconFile.Value = args[1];
-                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon file set to {Plugin.ConfigIconFile.Value}!");
+                settings.IconFile.Value = args[2];
+                ConsoleScript.instance.LogToConsole($"{args[1]} indicator icon file set to {settings.IconFile.Value}!");
             },
             new Dictionary<int, List<string>> {
-                {0, _files}
+                {0, _indicators},
+                {1, _files}
             },
-            ("file", $"a file within BepinEx/plugins/{Plugin.ModName}")
-        );
-        ConsoleScript.Commands.Add(command);
-        UpdateFiles();
+            ("indicator", "default or sleeping"),
+            ("file", $"a file within BepInEx/plugins/{Plugin.ModName}")
+        ));
 
-        command = new Command(
+        ConsoleScript.Commands.Add(new Command(
             "ConsciousnessIndicatorAnimationType",
-            "Set the animation for the consciousness indicator",
+            "Set the animation for the selected indicator",
             args =>
             {
-                Con.con.CheckArgumentCount(args, 1);
+                var settings = GetSettings(args, 2);
+                if (!Enum.TryParse(args[2], true, out AnimationType result) || !Enum.IsDefined(typeof(AnimationType), result))
+                    throw new Exception($"Invalid animation type \"{args[2]}\"!");
 
-                if (!Enum.TryParse(args[1], out AnimationType result))
-                    throw new Exception($"Could not parse \"{args[1]}\"!");
-
-                Plugin.ConfigAnimationType.Value = result;
-
-                ConsoleScript.instance.LogToConsole($"Consciousness indicator animation to {result}!");
+                settings.AnimationType.Value = result;
+                ConsoleScript.instance.LogToConsole($"{args[1]} indicator animation set to {result}!");
             },
             new Dictionary<int, List<string>> {
-                {0, Enum.GetNames(typeof(AnimationType)).ToList()}
+                {0, _indicators},
+                {1, Enum.GetNames(typeof(AnimationType)).ToList()}
             },
+            ("indicator", "default or sleeping"),
             ("type", "Animation type")
-        );
-        ConsoleScript.Commands.Add(command);
+        ));
 
-        command = new Command(
+        ConsoleScript.Commands.Add(new Command(
             "ConsciousnessIndicatorScale",
-            "The scale of the indicator icons",
+            "The scale of the selected indicator icons",
             args =>
             {
-                ConsoleScript.instance.CheckArgumentCount(args, 1);
-
-                var result = float.Parse(args[1]);
-                Plugin.ConfigScale.Value = result;
-                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon scale set to {result}!");
+                var settings = GetSettings(args, 2);
+                var result = float.Parse(args[2]);
+                settings.Scale.Value = result;
+                ConsoleScript.instance.LogToConsole($"{args[1]} indicator icon scale set to {result}!");
             },
-            null,
+            new Dictionary<int, List<string>> {
+                {0, _indicators}
+            },
+            ("indicator", "default or sleeping"),
             ("float", "the scale of the icons, 6 by default")
-        );
-        ConsoleScript.Commands.Add(command);
+        ));
 
-        command = new Command(
+        ConsoleScript.Commands.Add(new Command(
             "ConsciousnessIndicatorDoTint",
-            "Should the consciousness icons be tinted to the player's color",
+            "Tint the selected indicator icons with the player's color",
             args =>
             {
-                bool result;
-                if (args.Length < 2)
-                    result = !Plugin.ConfigDoTint.Value;
-                else
-                    result = bool.Parse(args[1]);
-                Plugin.ConfigDoTint.Value = result;
-                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon tint {(result ? "enabled" : "disabled")}!");
+                var settings = GetSettings(args, 1);
+                var result = args.Length < 3 ? !settings.DoTint.Value : bool.Parse(args[2]);
+                settings.DoTint.Value = result;
+                ConsoleScript.instance.LogToConsole($"{args[1]} indicator icon tint {(result ? "enabled" : "disabled")}!");
             },
-            null,
+            new Dictionary<int, List<string>> { { 0, _indicators } },
+            ("indicator", "default or sleeping"),
             ("bool", "optional, leave empty to toggle")
-        );
-        ConsoleScript.Commands.Add(command);
+        ));
     }
 }

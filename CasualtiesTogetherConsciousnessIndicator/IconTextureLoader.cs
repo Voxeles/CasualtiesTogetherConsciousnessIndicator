@@ -6,94 +6,122 @@ using Object = UnityEngine.Object;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
-internal static class IconTextureLoader
+internal sealed class IconTextureLoader : IDisposable
 {
     private static byte[] _fallbackImage;
-    private static Texture2D _fallbackTexture;
+    private Texture2D _texture;
+    private string _requestedFile;
+    private string _loadedPath;
+    private DateTime _lastWriteTime;
+    private float _nextCheckTime;
 
-    private static Texture2D _customTexture;
-    private static string _lastPath;
-    private static DateTime _lastWriteTime;
+    public Sprite Sprite { get; private set; }
+    public event Action Changed;
 
-    public static Texture2D LoadTexture()
+    public void ReloadIfNeeded(string fileName)
     {
-        EnsureFallbackTexture();
-        var texturePath = "";
-        Texture2D replacement = null;
+        if (fileName == _requestedFile && Time.realtimeSinceStartup < _nextCheckTime)
+            return;
+        _requestedFile = fileName;
+        _nextCheckTime = Time.realtimeSinceStartup + 3f;
+
+        var path = "";
+        Texture2D texture = null;
+        Sprite sprite;
         try
         {
-            texturePath = Path.Combine(Plugin.TextureDir, Plugin.ConfigIconFile.Value);
-            if (!File.Exists(texturePath))
+            path = Path.Combine(Plugin.TextureDir, fileName);
+            if (!File.Exists(path))
             {
-                Plugin.PrintWarning($"Found no icon. Set {texturePath} as your icon.");
-                File.WriteAllBytes(texturePath, _fallbackImage);
+                File.WriteAllBytes(path, GetFallbackImage());
+                Plugin.PrintWarning($"Created a fallback icon at {path}. Replace it with your own image.");
             }
 
-            var writeTime = File.GetLastWriteTime(texturePath);
-            if (texturePath == _lastPath && writeTime == _lastWriteTime)
-                return _customTexture ? _customTexture : _fallbackTexture;
+            var writeTime = File.GetLastWriteTimeUtc(path);
+            if (path == _loadedPath && writeTime == _lastWriteTime)
+                return;
 
-            replacement = DecodeTexture(File.ReadAllBytes(texturePath));
-            _lastPath = texturePath;
+            texture = DecodeTexture(File.ReadAllBytes(path));
+            sprite = CreateSprite(texture);
+            _loadedPath = path;
             _lastWriteTime = writeTime;
         }
         catch (Exception ex)
         {
-            _lastPath = null;
-            Plugin.PrintWarning($"Failed to load {texturePath}:\n\t{ex.Message}");
+            Object.Destroy(texture);
+            Plugin.PrintWarning($"Failed to load {path}:\n\t{ex.Message}");
+            if (Sprite != null)
+                return;
+
+            texture = DecodeTexture(GetFallbackImage());
+            sprite = CreateSprite(texture);
         }
 
-        Object.Destroy(_customTexture);
-        _customTexture = replacement;
-        return _customTexture ? _customTexture : _fallbackTexture;
+        Replace(texture, sprite);
+    }
+
+    private void Replace(Texture2D texture, Sprite sprite)
+    {
+        var oldSprite = Sprite;
+        var oldTexture = _texture;
+        Sprite = sprite;
+        _texture = texture;
+
+        Changed?.Invoke();
+
+        Object.Destroy(oldSprite);
+        Object.Destroy(oldTexture);
+    }
+
+    public void Dispose()
+    {
+        Replace(null, null);
+        Changed = null;
+    }
+
+    private static Sprite CreateSprite(Texture2D texture)
+    {
+        return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
     }
 
     private static Texture2D DecodeTexture(byte[] bytes)
     {
-        if (bytes.Length < 2)
-            return null;
-
         var texture = new Texture2D(2, 2);
         try
         {
             if (!texture.LoadImage(bytes))
-                return null;
+                throw new InvalidDataException("The file is not a supported image.");
             texture.filterMode = FilterMode.Point;
-            var result = texture;
-            texture = null;
-            return result;
+            return texture;
         }
-        finally
+        catch
         {
             Object.Destroy(texture);
+            throw;
         }
     }
 
-    private static void EnsureFallbackTexture()
+    private static byte[] GetFallbackImage()
     {
-        if (_fallbackTexture != null)
-            return;
+        if (_fallbackImage != null)
+            return _fallbackImage;
 
         const string assetName = "CasualtiesTogetherConsciousnessIndicator.assets.fallback.png";
         try
         {
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(assetName);
             if (stream == null)
-                throw new Exception("manifestResourceStream is null");
-
+                throw new FileNotFoundException("Embedded fallback image was not found.");
             using var buffer = new MemoryStream();
             stream.CopyTo(buffer);
-
             _fallbackImage = buffer.ToArray();
-            _fallbackTexture = DecodeTexture(_fallbackImage);
-            if (_fallbackTexture == null)
-                throw new Exception("Failed to decode fallback image");
         }
         catch (Exception ex)
         {
             _fallbackImage = Texture2D.whiteTexture.EncodeToPNG();
-            _fallbackTexture = Texture2D.whiteTexture;
-            Plugin.PrintError($"Failed to load asset {assetName}: " + ex);
+            Plugin.PrintError($"Failed to load asset {assetName}: {ex.Message}");
         }
+
+        return _fallbackImage;
     }
 }

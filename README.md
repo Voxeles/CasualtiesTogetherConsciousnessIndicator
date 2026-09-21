@@ -1,6 +1,6 @@
 # Casualties: Unknown Consciousness Indicator
 
-Shows a customizable icon above players who are unconscious. Works in multiplayer and in the vanilla game.
+Shows a customizable indicator above players who are unconscious or sleeping. Works in multiplayer and in vanilla.
 
 # Installation
 
@@ -11,7 +11,7 @@ Shows a customizable icon above players who are unconscious. Works in multiplaye
 # Features
 
 1. Shows a custom indicator above players who are unconscious, this indicator can be set to any image you want. The image file is hot-reloaded, no need to restart the game.
-2. Features both a subtle static indicator, and an animated indicator
+2. Each indicator has its own enabled, icon file, tint, scale, and animation settings (`None`, `RotateAround`, or `Jumping`).
 3. Works in multiplayer (client-side), without the network running (offline), or without the multiplayer mod installed (vanilla)
 
 # Configuration
@@ -21,11 +21,23 @@ or in-game through the console (see commands below).
 
 # Commands
 
-1. `ConsciousnessIndicatorEnabled` - Enable/Disable the indicator
-2. `ConsciousnessIndicatorIconFile` - Choose which image within BepInEx/plugins/CasualtiesTogetherConsciousnessIndicator to use as the indicator icon
-3. `ConsciousnessIndicatorDoRotate` - Enable/Disable the animated indicator
-4. `ConsciousnessIndicatorScale` - Change the scale of the indicator
-5. `ConsciousnessIndicatorDoTint` - Enable/Disable the icon being tinted with the player's color
+All five commands take `default` (unconsciousness) or `sleeping` as their first argument.
+
+1. `ConsciousnessIndicatorEnabled <indicator> [true|false]` - Enable/disable the selected indicator; omit the value to toggle.
+2. `ConsciousnessIndicatorIconFile <indicator> <file>` - Choose an image within BepInEx/plugins/CasualtiesTogetherConsciousnessIndicator.
+3. `ConsciousnessIndicatorAnimationType <indicator> <type>` - Choose `None`, `RotateAround`, or `Jumping`.
+4. `ConsciousnessIndicatorScale <indicator> <scale>` - Change the scale of the selected indicator.
+5. `ConsciousnessIndicatorDoTint <indicator> [true|false]` - Enable/disable tinting with the player's color; omit the value to toggle.
+
+For example, here's the config for the rotating stars unconsciousness indicator:
+
+```text
+ConsciousnessIndicatorEnabled default true
+ConsciousnessIndicatorIconFile default star.png
+ConsciousnessIndicatorAnimationType default RotateAround
+ConsciousnessIndicatorScale default 6
+ConsciousnessIndicatorDoTint default false
+```
 
 # Shoutouts
 

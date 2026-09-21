@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -18,11 +18,12 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
     private AnimationType _myAnimationType;
     private float _myScale;
     private Color _myColor;
-    private GameObject _myIconPrefab;
-
-    private static Texture2D _sIconTexture;
-    private static GameObject _sIconPrefab;
-    private static float _sLastCheckTime = 0f;
+    private SpriteRenderer _renderer1;
+    private SpriteRenderer _renderer2;
+    private SpriteRenderer _renderer3;
+    private IndicatorSettings _settings;
+    private bool _wasSleeping;
+    private float _wakeGraceUntil = float.NegativeInfinity;
 
     private static readonly Vector3 Icon1Dir = Quaternion.Euler(0f, 0f, -15f) * Vector2.right * 1.5f;
     private static readonly Vector3 Icon1Axis = Quaternion.Euler(5f, 0f, 90f) * Icon1Dir;
@@ -44,13 +45,16 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
     {
         try
         {
-            _myColor = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
-            _myScale = Plugin.ConfigScale.Value;
-            _myAnimationType = Plugin.ConfigAnimationType.Value;
-            _animT = _myAnimationType == AnimationType.RotateAround ? Random.value : 0f;
+            _icon1 = CreateIcon(out _renderer1);
+            _icon2 = CreateIcon(out _renderer2);
+            _icon3 = CreateIcon(out _renderer3);
+            _settings = body.sleeping ? Plugin.Sleeping : Plugin.Unconscious;
+            _wasSleeping = body.sleeping;
+            Plugin.Unconscious.Icon.Changed += RefreshSprite;
+            Plugin.Sleeping.Icon.Changed += RefreshSprite;
+            RefreshSprite();
+            UpdatePrefs(true);
             _pos = (Vector2)body.limbs[0].transform.position + Vector2.up * 10f;
-            _myIconPrefab = _sIconPrefab;
-            EnsureIcons();
         }
         catch (Exception ex)
         {
@@ -61,32 +65,53 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!body || !Plugin.ConfigEnabled.Value)
+        if (!body || !Plugin.Instance)
         {
             Destroy(this);
             return;
         }
 
-        EnsureIcons();
-
-        if (body.conscious && !_icon1.activeSelf)
-            return;
-
-        if (!body.alive || body.sleeping)
+        if (!body.alive)
         {
-            if (!_icon1.activeSelf)
-                return;
-            _icon1.SetActive(false);
-            _icon2.SetActive(false);
-            _icon3.SetActive(false);
+            _wasSleeping = false;
+            _wakeGraceUntil = float.NegativeInfinity;
+            HideIcons();
             return;
         }
+
+        if (_wasSleeping && !body.sleeping)
+            _wakeGraceUntil = Time.time + 3f;
+        _wasSleeping = body.sleeping;
+        if (body.sleeping || body.conscious)
+            _wakeGraceUntil = float.NegativeInfinity;
+
+        var needsIndicator = body.sleeping || !body.conscious;
+        // Only switch while an indicator is needed, so recovery can finish its exit animation.
+        if (needsIndicator)
+        {
+            var settings = body.sleeping || Time.time < _wakeGraceUntil ? Plugin.Sleeping : Plugin.Unconscious;
+            if (_settings != settings)
+            {
+                _settings = settings;
+                HideIcons();
+                RefreshSprite();
+                UpdatePrefs(true);
+            }
+        }
+
+        if (!_settings.Enabled.Value)
+        {
+            HideIcons();
+            return;
+        }
+        if (!needsIndicator && !_icon1.activeSelf)
+            return;
 
         UpdatePrefs();
 
         var headPos = (Vector2)body.limbs[0].transform.position;
 
-        if (body.conscious)
+        if (!needsIndicator)
         {
             _floatInT = 0f;
             _floatOutT += Time.deltaTime;
@@ -98,9 +123,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
             if (targetPos.y - _pos.y is <= 1f or >= 8f || _floatOutT >= 2f)
             {
-                _icon1.SetActive(false);
-                _icon2.SetActive(false);
-                _icon3.SetActive(false);
+                HideIcons();
                 return;
             }
         }
@@ -171,10 +194,10 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
         }
     }
 
-    private void UpdatePrefs()
+    private void UpdatePrefs(bool force = false)
     {
-        var animationType = Plugin.ConfigAnimationType.Value;
-        if (_myAnimationType != animationType)
+        var animationType = _settings.AnimationType.Value;
+        if (_myAnimationType != animationType || force)
         {
             _myAnimationType = animationType;
             _animT = _myAnimationType == AnimationType.RotateAround ? Random.value : 0f;
@@ -185,8 +208,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
             }
         }
 
-        var scale = Plugin.ConfigScale.Value;
-        if (!Mathf.Approximately(_myScale, scale))
+        var scale = _settings.Scale.Value;
+        if (!Mathf.Approximately(_myScale, scale) || force)
         {
             _myScale = scale;
             _icon1.transform.localScale = new Vector3(scale, scale, 0);
@@ -194,76 +217,51 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
             _icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
         }
 
-        var color = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
-        if (_myColor != color)
+        var color = _settings.DoTint.Value ? GetPlayerColor() : Color.white;
+        if (_myColor != color || force)
         {
             _myColor = color;
-            _icon1.GetComponent<SpriteRenderer>().color = color;
-            _icon2.GetComponent<SpriteRenderer>().color = color;
-            _icon3.GetComponent<SpriteRenderer>().color = color;
+            _renderer1.color = color;
+            _renderer2.color = color;
+            _renderer3.color = color;
         }
     }
 
     private void OnDestroy()
     {
+        if (Plugin.Unconscious != null)
+            Plugin.Unconscious.Icon.Changed -= RefreshSprite;
+        if (Plugin.Sleeping != null)
+            Plugin.Sleeping.Icon.Changed -= RefreshSprite;
         Destroy(_icon1);
         Destroy(_icon2);
         Destroy(_icon3);
     }
 
-    private void EnsureIcons()
+    private void RefreshSprite()
     {
-        EnsureIconPrefab();
-
-        if (_icon1 != null && _myIconPrefab == _sIconPrefab)
-            return;
-
-        _myIconPrefab = _sIconPrefab;
-        InitIcons();
+        var sprite = _settings.Icon.Sprite;
+        if (_renderer1) _renderer1.sprite = sprite;
+        if (_renderer2) _renderer2.sprite = sprite;
+        if (_renderer3) _renderer3.sprite = sprite;
     }
 
-    private static void EnsureIconPrefab()
+    private void HideIcons()
     {
-        var force = _sIconPrefab == null;
-
-        if (Time.realtimeSinceStartup - _sLastCheckTime < 3f && !force)
-            return;
-        _sLastCheckTime = Time.realtimeSinceStartup;
-
-        var texture = IconTextureLoader.LoadTexture();
-        if (texture == _sIconTexture && !force)
-            return;
-
-        _sIconTexture = texture;
-
-        Destroy(_sIconPrefab?.GetComponent<SpriteRenderer>().sprite);
-        Destroy(_sIconPrefab);
-        _sIconPrefab = new GameObject("PlayerConsciousnessIcon");
-        var sprRenderer = _sIconPrefab.AddComponent<SpriteRenderer>();
-        sprRenderer.sortingOrder = 6001;
-        sprRenderer.sprite = Sprite.Create(_sIconTexture, new Rect(0, 0, _sIconTexture.width, _sIconTexture.height), new Vector2(0.5f, 0.5f));
-        _sIconPrefab.transform.SetParent(null);
-        DontDestroyOnLoad(_sIconPrefab);
-        _sIconPrefab.SetActive(false);
+        _icon1.SetActive(false);
+        _icon2.SetActive(false);
+        _icon3.SetActive(false);
+        _floatInT = 0f;
+        _floatOutT = 0f;
     }
 
-    private void InitIcons()
+    private GameObject CreateIcon(out SpriteRenderer renderer)
     {
-        Destroy(_icon1);
-        Destroy(_icon2);
-        Destroy(_icon3);
-        var parentTransform = body.transform.parent.gameObject.transform;
-        var color = _myColor;
-        var scale = _myScale;
-        var prefab = _myIconPrefab;
-        _icon1 = Instantiate(prefab, parentTransform, false);
-        _icon1.transform.localScale = new Vector3(scale, scale, 0);
-        _icon1.GetComponent<SpriteRenderer>().color = color;
-        _icon2 = Instantiate(prefab, parentTransform, false);
-        _icon2.transform.localScale = new Vector3(scale + 0.5f, scale + 0.5f, 0);
-        _icon2.GetComponent<SpriteRenderer>().color = color;
-        _icon3 = Instantiate(prefab, parentTransform, false);
-        _icon3.transform.localScale = new Vector3(scale - 0.5f, scale - 0.5f, 0);
-        _icon3.GetComponent<SpriteRenderer>().color = color;
+        var icon = new GameObject("PlayerConsciousnessIcon");
+        icon.transform.SetParent(body.transform.parent, false);
+        renderer = icon.AddComponent<SpriteRenderer>();
+        renderer.sortingOrder = 6001;
+        icon.SetActive(false);
+        return icon;
     }
 }
