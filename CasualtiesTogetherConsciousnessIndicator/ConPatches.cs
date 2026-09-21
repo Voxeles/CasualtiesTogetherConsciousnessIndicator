@@ -11,75 +11,75 @@ namespace CasualtiesTogetherConsciousnessIndicator;
 [HarmonyPatch]
 internal class ConPatches
 {
-	private static List<string> _files = [];
+    private static List<string> _files = [];
 
-	private static MethodBase TargetMethod()
-	{
-		if (!Plugin.MpModLoaded)
-			return AccessTools.Method(typeof(ConsoleScript), nameof(ConsoleScript.RegisterAllCommands));
-		return AccessTools.Method(Plugin.MpModCon, nameof(KrokoshaCasualtiesMP.Con._RegisterMultiplayerConsoleCommands));
-	}
+    private static MethodBase TargetMethod()
+    {
+        if (!Plugin.MpModLoaded)
+            return AccessTools.Method(typeof(ConsoleScript), nameof(ConsoleScript.RegisterAllCommands));
+        return AccessTools.Method(Plugin.MpModCon, nameof(KrokoshaCasualtiesMP.Con._RegisterMultiplayerConsoleCommands));
+    }
 
-	private static void UpdateFiles()
-	{
-		try
-		{
-			_files.Clear();
-			var dir = Directory.CreateDirectory(Plugin.TextureDir);
-			foreach (var fileInfo in dir.GetFiles())
-			{
-				var ext = fileInfo.Extension.ToLowerInvariant();
-				if (ext.Equals(".png") || ext.Equals(".jpg") || ext.Equals(".jpeg"))
-					_files.Add(fileInfo.Name);
-			}
-		}
-		catch (Exception ex)
-		{
-			Plugin.Logger.LogWarning($"Failed to read files: " + ex);
-		}
-	}
+    private static void UpdateFiles()
+    {
+        try
+        {
+            _files.Clear();
+            var dir = Directory.CreateDirectory(Plugin.TextureDir);
+            foreach (var fileInfo in dir.GetFiles())
+            {
+                var ext = fileInfo.Extension.ToLowerInvariant();
+                if (ext.Equals(".png") || ext.Equals(".jpg") || ext.Equals(".jpeg"))
+                    _files.Add(fileInfo.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogWarning($"Failed to read files: " + ex);
+        }
+    }
 
     private static void Postfix()
     {
         var command = new Command(
-        	"ConsciousnessIndicatorEnabled",
-        	"Enable the consciousness indicator",
-        	args =>
-	        {
-		        bool result;
-		        if (args.Length < 2)
-			        result = !Plugin.ConfigEnabled.Value;
-		        else
-			        result = bool.Parse(args[1]);
-        		Plugin.ConfigEnabled.Value = result;
-		        ConsoleScript.instance.LogToConsole($"Consciousness indicator {(result ? "enabled" : "disabled")}!");
-	        },
-	        null,
-	        ("bool", "optional, leave empty to toggle")
+            "ConsciousnessIndicatorEnabled",
+            "Enable the consciousness indicator",
+            args =>
+            {
+                bool result;
+                if (args.Length < 2)
+                    result = !Plugin.ConfigEnabled.Value;
+                else
+                    result = bool.Parse(args[1]);
+                Plugin.ConfigEnabled.Value = result;
+                ConsoleScript.instance.LogToConsole($"Consciousness indicator {(result ? "enabled" : "disabled")}!");
+            },
+            null,
+            ("bool", "optional, leave empty to toggle")
         );
         ConsoleScript.Commands.Add(command);
 
         command = new Command(
-        	"ConsciousnessIndicatorIconFile",
-        	$"Which file within BepinEx/plugins/{Plugin.ModName} to use as the indicator icon",
-        	args =>
-	        {
-		        UpdateFiles();
+            "ConsciousnessIndicatorIconFile",
+            $"Which file within BepinEx/plugins/{Plugin.ModName} to use as the indicator icon",
+            args =>
+            {
+                UpdateFiles();
 
-		        ConsoleScript.instance.CheckArgumentCount(args, 1);
+                ConsoleScript.instance.CheckArgumentCount(args, 1);
 
-        		var path = Path.Combine(Plugin.TextureDir, args[1]);
+                var path = Path.Combine(Plugin.TextureDir, args[1]);
 
-        		if (!File.Exists(path))
-        			throw new Exception($"\nFile {path} does not exist!");
+                if (!File.Exists(path))
+                    throw new Exception($"\nFile {path} does not exist!");
 
-		        Plugin.ConfigIconFile.Value = args[1];
-		        ConsoleScript.instance.LogToConsole($"Consciousness indicator icon file set to {Plugin.ConfigIconFile.Value}!");
-        	},
-	        new Dictionary<int, List<string>> {
-		        {0, _files}
-	        },
-	        ("file", $"a file within BepinEx/plugins/{Plugin.ModName}")
+                Plugin.ConfigIconFile.Value = args[1];
+                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon file set to {Plugin.ConfigIconFile.Value}!");
+            },
+            new Dictionary<int, List<string>> {
+                {0, _files}
+            },
+            ("file", $"a file within BepinEx/plugins/{Plugin.ModName}")
         );
         ConsoleScript.Commands.Add(command);
         UpdateFiles();
@@ -89,53 +89,53 @@ internal class ConPatches
             "Set the animation for the consciousness indicator",
             args =>
             {
-	            Con.con.CheckArgumentCount(args, 1);
+                Con.con.CheckArgumentCount(args, 1);
 
-	            if (!Enum.TryParse(args[1], out AnimationType result))
-		            throw new Exception($"Could not parse \"{args[1]}\"!");
+                if (!Enum.TryParse(args[1], out AnimationType result))
+                    throw new Exception($"Could not parse \"{args[1]}\"!");
 
-	            Plugin.ConfigAnimationType.Value = result;
+                Plugin.ConfigAnimationType.Value = result;
 
-	            ConsoleScript.instance.LogToConsole($"Consciousness indicator animation to {result}!");
+                ConsoleScript.instance.LogToConsole($"Consciousness indicator animation to {result}!");
             },
             new Dictionary<int, List<string>> {
-	            {0, Enum.GetNames(typeof(AnimationType)).ToList()}
+                {0, Enum.GetNames(typeof(AnimationType)).ToList()}
             },
             ("type", "Animation type")
         );
         ConsoleScript.Commands.Add(command);
 
         command = new Command(
-	        "ConsciousnessIndicatorScale",
-	        "The scale of the indicator icons",
-	        args =>
-	        {
-		        ConsoleScript.instance.CheckArgumentCount(args, 1);
+            "ConsciousnessIndicatorScale",
+            "The scale of the indicator icons",
+            args =>
+            {
+                ConsoleScript.instance.CheckArgumentCount(args, 1);
 
-		        var result = float.Parse(args[1]);
-		        Plugin.ConfigScale.Value = result;
-		        ConsoleScript.instance.LogToConsole($"Consciousness indicator icon scale set to {result}!");
-	        },
-	        null,
-	        ("float", "the scale of the icons, 6 by default")
+                var result = float.Parse(args[1]);
+                Plugin.ConfigScale.Value = result;
+                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon scale set to {result}!");
+            },
+            null,
+            ("float", "the scale of the icons, 6 by default")
         );
         ConsoleScript.Commands.Add(command);
 
         command = new Command(
-	        "ConsciousnessIndicatorDoTint",
-	        "Should the consciousness icons be tinted to the player's color",
-	        args =>
-	        {
-		        bool result;
-		        if (args.Length < 2)
-			        result = !Plugin.ConfigDoTint.Value;
-		        else
-			        result = bool.Parse(args[1]);
-		        Plugin.ConfigDoTint.Value = result;
-		        ConsoleScript.instance.LogToConsole($"Consciousness indicator icon tint {(result ? "enabled" : "disabled")}!");
-	        },
-	        null,
-	        ("bool", "optional, leave empty to toggle")
+            "ConsciousnessIndicatorDoTint",
+            "Should the consciousness icons be tinted to the player's color",
+            args =>
+            {
+                bool result;
+                if (args.Length < 2)
+                    result = !Plugin.ConfigDoTint.Value;
+                else
+                    result = bool.Parse(args[1]);
+                Plugin.ConfigDoTint.Value = result;
+                ConsoleScript.instance.LogToConsole($"Consciousness indicator icon tint {(result ? "enabled" : "disabled")}!");
+            },
+            null,
+            ("bool", "optional, leave empty to toggle")
         );
         ConsoleScript.Commands.Add(command);
     }
