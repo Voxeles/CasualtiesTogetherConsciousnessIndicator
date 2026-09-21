@@ -14,8 +14,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 	private Vector2 _pos;
 	private float _floatInT = 0f;
 	private float _floatOutT = 0f;
-	private float _rotateT = Random.value;
-	private bool _myDoRotate;
+	private float _animT;
+	private AnimationType _myAnimationType;
 	private float _myScale;
 	private Color _myColor;
 	private GameObject _myIconPrefab;
@@ -46,7 +46,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 		{
 			_myColor = Plugin.ConfigDoTint.Value ? GetPlayerColor() : Color.white;
 			_myScale = Plugin.ConfigScale.Value;
-			_myDoRotate = Plugin.ConfigDoRotate.Value;
+			_myAnimationType = Plugin.ConfigAnimationType.Value;
+			_animT = _myAnimationType == AnimationType.RotateAround ? Random.value : 0f;
 			_pos = (Vector2)body.limbs[0].transform.position + Vector2.up * 10f;
 			_myIconPrefab = _sIconPrefab;
 			EnsureIcons();
@@ -114,8 +115,8 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 				_floatInT = 0;
 				_pos = headPos + Vector2.up * 4f;
 				_icon1.SetActive(true);
-				_icon2.SetActive(_myDoRotate);
-				_icon3.SetActive(_myDoRotate);
+				_icon2.SetActive(_myAnimationType == AnimationType.RotateAround);
+				_icon3.SetActive(_myAnimationType == AnimationType.RotateAround);
 			}
 
 			if (_floatInT >= 2f)
@@ -138,35 +139,49 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
 
 	private void UpdateIcons()
 	{
-		_rotateT += Time.deltaTime;
-		if (_rotateT > 1)
-			_rotateT %= 1;
+		_animT += Time.deltaTime;
+		if (_animT > 1)
+			_animT %= 1;
 
 		var pos = (Vector3)_pos;
 
-		if (!Plugin.ConfigDoRotate.Value)
+		if (_myAnimationType == AnimationType.None)
 		{
 			_icon1.transform.position = pos;
 		}
-		else
+		else if (_myAnimationType == AnimationType.RotateAround)
 		{
-			var angle = _rotateT * 360f;
+			var angle = _animT * 360f;
 			_icon1.transform.position = pos + Quaternion.AngleAxis(angle, Icon1Axis) * Icon1Dir;
 			_icon2.transform.position = pos + Quaternion.AngleAxis(angle + 120f, Icon2Axis) * Icon2Dir;
 			_icon3.transform.position = pos + Quaternion.AngleAxis(angle + 240f, Icon3Axis) * Icon3Dir;
+		}
+		else if (_myAnimationType == AnimationType.Jumping)
+		{
+			if (_floatInT < 2f || _floatOutT != 0f)
+			{
+				_icon1.transform.position = pos;
+				_animT = 0f;
+			}
+			else
+			{
+				var height = Mathf.Sin(_animT * Mathf.PI) * 1.25f;
+				_icon1.transform.position = pos + (Vector3)(Vector2.up * height);
+			}
 		}
 	}
 
 	private void UpdatePrefs()
 	{
-		var doRotate = Plugin.ConfigDoRotate.Value;
-		if (_myDoRotate != doRotate)
+		var animationType = Plugin.ConfigAnimationType.Value;
+		if (_myAnimationType != animationType)
 		{
-			_myDoRotate = doRotate;
+			_myAnimationType = animationType;
+			_animT = _myAnimationType == AnimationType.RotateAround ? Random.value : 0f;
 			if (_icon1.activeSelf)
 			{
-				_icon2.SetActive(doRotate);
-				_icon3.SetActive(doRotate);
+				_icon2.SetActive(_myAnimationType == AnimationType.RotateAround);
+				_icon3.SetActive(_myAnimationType == AnimationType.RotateAround);
 			}
 		}
 

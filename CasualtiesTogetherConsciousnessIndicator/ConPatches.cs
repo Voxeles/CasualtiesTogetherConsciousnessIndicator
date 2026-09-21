@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using KrokoshaCasualtiesMP;
 
 namespace CasualtiesTogetherConsciousnessIndicator;
 
@@ -83,20 +85,23 @@ internal class ConPatches
         UpdateFiles();
 
         command = new Command(
-            "ConsciousnessIndicatorDoRotate",
-            "Should the consciousness indicator be three rotating icons",
+            "ConsciousnessIndicatorAnimationType",
+            "Set the animation for the consciousness indicator",
             args =>
             {
-	            bool result;
-	            if (args.Length < 2)
-		            result = !Plugin.ConfigDoRotate.Value;
-	            else
-		            result = bool.Parse(args[1]);
-	            Plugin.ConfigDoRotate.Value = result;
-	            ConsoleScript.instance.LogToConsole($"Consciousness indicator rotation animation {(result ? "enabled" : "disabled")}!");
+	            Con.con.CheckArgumentCount(args, 1);
+
+	            if (!Enum.TryParse(args[1], out AnimationType result))
+		            throw new Exception($"Could not parse \"{args[1]}\"!");
+
+	            Plugin.ConfigAnimationType.Value = result;
+
+	            ConsoleScript.instance.LogToConsole($"Consciousness indicator animation to {result}!");
             },
-            null,
-            ("bool", "optional, leave empty to toggle")
+            new Dictionary<int, List<string>> {
+	            {0, Enum.GetNames(typeof(AnimationType)).ToList()}
+            },
+            ("type", "Animation type")
         );
         ConsoleScript.Commands.Add(command);
 

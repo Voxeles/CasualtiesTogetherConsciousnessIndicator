@@ -38,7 +38,7 @@ public class Plugin : BaseUnityPlugin
 
 	public static ConfigEntry<bool> ConfigEnabled;
 	public static ConfigEntry<string> ConfigIconFile;
-	public static ConfigEntry<bool> ConfigDoRotate;
+	public static ConfigEntry<AnimationType> ConfigAnimationType;
 	public static ConfigEntry<float> ConfigScale;
 	public static ConfigEntry<bool> ConfigDoTint;
 
@@ -82,11 +82,11 @@ public class Plugin : BaseUnityPlugin
 			"IconFile",
 			"zzz.png",
 			"Which file within BepInEx/plugins/ConsciousnessIndicator to use as the icon");
-		ConfigDoRotate = Config.Bind(
+		ConfigAnimationType = Config.Bind(
 			"General",
-			"DoRotate",
-			false,
-			"Set to true to create three rotating icons around an unconscious player");
+			"AnimationType",
+			AnimationType.None,
+			"How to animate the icon above the player\nNone: simply show up above the player\nRotateAround: Three rotating icons around their head\nJumping: Moving up and down above their head");
 		ConfigScale = Config.Bind(
 			"General",
 			"Scale",
