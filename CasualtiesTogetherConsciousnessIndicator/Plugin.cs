@@ -58,7 +58,7 @@ public class Plugin : BaseUnityPlugin
             MpModNetworkIsRunningGetter = AccessTools.PropertyGetter(mpModScavMultiplayer, nameof(KrokoshaCasualtiesMP.KrokoshaScavMultiplayer.network_system_is_running));
             MpModIsPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.is_player));
             MpModNetPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.player));
-            MpModNetPlayerColorField = AccessTools.Field(MpModNetPlayer, nameof(KrokoshaCasualtiesMP.NetPlayer.playerColor));
+            MpModNetPlayerColorField = MpModNetPlayer.GetField("playerColor", AccessTools.all) ?? MpModNetPlayer.GetField("plrcolor", AccessTools.all);
             MpModToColorWithAlpha = AccessTools.Method(MpModColor24, nameof(KrokoshaCasualtiesMP.Color24.ToColorWithAlpha), [typeof(float)]);
             break;
         }
