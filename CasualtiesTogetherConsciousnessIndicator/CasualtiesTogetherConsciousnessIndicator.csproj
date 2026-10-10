@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
     <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
     <Version>1.2.0</Version>
@@ -48,11 +48,6 @@
     <Reference Include="CasualtiesMP" Publicize="true">
       <HintPath>$(BepInExDir)/plugins/Together/CasualtiesMP.dll</HintPath>
     </Reference>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
-    <Reference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
