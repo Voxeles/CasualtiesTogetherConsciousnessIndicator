@@ -37,7 +37,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
         if (netPlayer == null)
             return Color.white;
 
-        var color24 = Plugin.MpModNetPlayerColorField.GetValue(netPlayer);
+        var color24 = Plugin.MpModPlayerColorField.GetValue(netPlayer);
         return (Color)Plugin.MpModToColorWithAlpha.Invoke(color24, [1.0f]);
     }
 

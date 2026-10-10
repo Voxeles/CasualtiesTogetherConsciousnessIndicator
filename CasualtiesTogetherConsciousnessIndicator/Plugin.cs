@@ -9,7 +9,7 @@ using UnityEngine;
 namespace CasualtiesTogetherConsciousnessIndicator;
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-[BepInDependency("KrokoshaCasualtiesMP", BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency("CasualtiesMP", BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
 {
     public const string ModGuid = MyPluginInfo.PLUGIN_GUID;
@@ -25,12 +25,12 @@ public class Plugin : BaseUnityPlugin
     public static bool MpModLoaded = false;
     public static Type MpModCon;
     public static Type MpModNetBody;
-    public static Type MpModNetPlayer;
+    public static Type MpModScavPlayer;
     public static Type MpModColor24;
     public static MethodInfo MpModNetworkIsRunningGetter;
     public static MethodInfo MpModIsPlayerGetter;
-    public static MethodInfo MpModNetPlayerGetter;
-    public static FieldInfo MpModNetPlayerColorField;
+    public static MethodInfo MpModPlayerGetter;
+    public static FieldInfo MpModPlayerColorField;
     public static MethodInfo MpModToColorWithAlpha;
 
     internal static IndicatorSettings Unconscious;
@@ -47,19 +47,14 @@ public class Plugin : BaseUnityPlugin
 
         foreach (var assembly in AccessTools.AllAssemblies())
         {
-            if (!assembly.GetName().Name.Equals("KrokoshaCasualtiesMP"))
+            if (!assembly.GetName().Name.Equals("CasualtiesMP"))
                 continue;
-            MpModLoaded = true;
-            var mpModScavMultiplayer = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.KrokoshaScavMultiplayer)}", true);
-            MpModCon = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.Con)}", true);
-            MpModNetBody = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.NetBody)}", true);
-            MpModNetPlayer = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.NetPlayer)}", true);
-            MpModColor24 = assembly.GetType($"{nameof(KrokoshaCasualtiesMP)}.{nameof(KrokoshaCasualtiesMP.Color24)}", true);
-            MpModNetworkIsRunningGetter = AccessTools.PropertyGetter(mpModScavMultiplayer, nameof(KrokoshaCasualtiesMP.KrokoshaScavMultiplayer.network_system_is_running));
-            MpModIsPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.is_player));
-            MpModNetPlayerGetter = AccessTools.PropertyGetter(MpModNetBody, nameof(KrokoshaCasualtiesMP.NetBody.player));
-            MpModNetPlayerColorField = MpModNetPlayer.GetField("playerColor", AccessTools.all) ?? MpModNetPlayer.GetField("plrcolor", AccessTools.all);
-            MpModToColorWithAlpha = AccessTools.Method(MpModColor24, nameof(KrokoshaCasualtiesMP.Color24.ToColorWithAlpha), [typeof(float)]);
+
+            if (TryLoadingMpModFields(assembly))
+                MpModLoaded = true;
+            else
+                PrintError("Failed to load Casualties: Together integration!");
+
             break;
         }
 
@@ -105,6 +100,7 @@ public class Plugin : BaseUnityPlugin
             var character = body.transform.parent.gameObject;
             if (character.TryGetComponent<PlayerConsciousnessIndicator>(out _))
                 continue;
+
             object netPlayer = null;
             if (MpModLoaded && (bool)MpModNetworkIsRunningGetter.Invoke(null, null))
             {
@@ -114,8 +110,9 @@ public class Plugin : BaseUnityPlugin
                 var isPlayer = (bool)MpModIsPlayerGetter.Invoke(netBody, null);
                 if (!isPlayer)
                     continue;
-                netPlayer = MpModNetPlayerGetter.Invoke(netBody, null);
+                netPlayer = MpModPlayerGetter.Invoke(netBody, null);
             }
+
             var indicator = character.AddComponent<PlayerConsciousnessIndicator>();
             indicator.body = body;
             indicator.netPlayer = netPlayer;
@@ -132,5 +129,54 @@ public class Plugin : BaseUnityPlugin
     {
         Logger.LogError(message);
         ConsoleScript.instance?.LogToConsole($"<color=red>[{Plugin.ModName}] {message}</color>");
+    }
+
+    private static bool TryLoadingMpModFields(Assembly assembly)
+    {
+        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Con)}", out MpModCon))
+            return false;
+        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.NetBody)}", out MpModNetBody))
+            return false;
+        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.ScavPlayer)}", out MpModScavPlayer))
+            return false;
+        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Color24)}", out MpModColor24))
+            return false;
+        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Net)}", out Type mpModNet))
+            return false;
+        if (!TryGetGetter(mpModNet, nameof(Together.Net.IsRunning), out MpModNetworkIsRunningGetter))
+            return false;
+        if (!TryGetGetter(MpModNetBody, nameof(Together.NetBody.IsPlayer), out MpModIsPlayerGetter))
+            return false;
+        if (!TryGetGetter(MpModNetBody, nameof(Together.NetBody.plr), out MpModPlayerGetter))
+            return false;
+        if (!TryGetField(MpModScavPlayer, nameof(Together.ScavPlayer.playerColor), out MpModPlayerColorField))
+            return false;
+        if (!TryGetMethod(MpModColor24, nameof(Together.Color24.ToColorWithAlpha), [typeof(float)], out MpModToColorWithAlpha))
+            return false;
+        return true;
+    }
+
+    public static bool TryGetType(Assembly assembly, string name, out Type type)
+    {
+        type = assembly.GetType(name, throwOnError: false);
+        return type != null;
+    }
+
+    public static bool TryGetGetter(Type type, string name, out MethodInfo getter)
+    {
+        getter = AccessTools.PropertyGetter(type, name);
+        return getter != null;
+    }
+
+    public static bool TryGetField(Type type, string name, out FieldInfo field)
+    {
+        field = AccessTools.Field(type, name);
+        return field != null;
+    }
+
+    public static bool TryGetMethod(Type type, string name, Type[] parameters, out MethodInfo method)
+    {
+        method = AccessTools.Method(type, name, parameters);
+        return method != null;
     }
 }

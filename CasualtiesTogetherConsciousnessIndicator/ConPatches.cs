@@ -17,7 +17,7 @@ internal class ConPatches
     {
         if (!Plugin.MpModLoaded)
             return AccessTools.Method(typeof(ConsoleScript), nameof(ConsoleScript.RegisterAllCommands));
-        return AccessTools.Method(Plugin.MpModCon, nameof(KrokoshaCasualtiesMP.Con._RegisterMultiplayerConsoleCommands));
+        return AccessTools.Method(Plugin.MpModCon, nameof(Together.Con._RegisterMultiplayerConsoleCommands));
     }
 
     private static void UpdateFiles()

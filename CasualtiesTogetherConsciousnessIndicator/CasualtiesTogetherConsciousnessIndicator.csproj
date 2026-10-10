@@ -3,7 +3,7 @@
     <TargetFramework>net48</TargetFramework>
     <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
     <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
-    <Version>1.1.2</Version>
+    <Version>1.2.0</Version>
     <AssemblyName>$(ProjectName)</AssemblyName>
     <Product>$(ProjectName)</Product>
     <BepInExPluginName>$(ProjectName)</BepInExPluginName>
@@ -45,8 +45,8 @@
       <HintPath>$(GameAssembliesDir)/Newtonsoft.Json.dll</HintPath>
     </Reference>
 
-    <Reference Include="KrokoshaCasualtiesMP" Publicize="true">
-      <HintPath>$(BepInExDir)/plugins/KrokMP/KrokoshaCasualtiesMP.dll</HintPath>
+    <Reference Include="CasualtiesMP" Publicize="true">
+      <HintPath>$(BepInExDir)/plugins/Together/CasualtiesMP.dll</HintPath>
     </Reference>
   </ItemGroup>
 
