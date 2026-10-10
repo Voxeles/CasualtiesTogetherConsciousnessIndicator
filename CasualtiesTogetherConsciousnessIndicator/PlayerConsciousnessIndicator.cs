@@ -79,8 +79,10 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
             return;
         }
 
+        // Add a three-second grace period between switching from sleeping to being unconscious
+        // When waking up, players are considered still unconscious for a while
         if (_wasSleeping && !body.sleeping)
-            _wakeGraceUntil = Time.time + 3f;
+            _wakeGraceUntil = Time.unscaledTime + 3f;
         _wasSleeping = body.sleeping;
         if (body.sleeping || body.conscious)
             _wakeGraceUntil = float.NegativeInfinity;
@@ -89,7 +91,7 @@ internal class PlayerConsciousnessIndicator : MonoBehaviour
         // Only switch while an indicator is needed, so recovery can finish its exit animation.
         if (needsIndicator)
         {
-            var settings = body.sleeping || Time.time < _wakeGraceUntil ? Plugin.Sleeping : Plugin.Unconscious;
+            var settings = body.sleeping || Time.unscaledTime < _wakeGraceUntil ? Plugin.Sleeping : Plugin.Unconscious;
             if (_settings != settings)
             {
                 _settings = settings;
