@@ -2,6 +2,7 @@
 using System.IO;
 using System.Reflection;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
@@ -23,7 +24,6 @@ public class Plugin : BaseUnityPlugin
     public static Plugin Instance { get; private set; } = null!;
 
     public static bool MpModLoaded = false;
-    public static Type MpModCon;
     public static Type MpModNetBody;
     public static Type MpModScavPlayer;
     public static Type MpModColor24;
@@ -38,12 +38,14 @@ public class Plugin : BaseUnityPlugin
 
     public static string TextureDir;
 
-    private float _t = 0f;
+    private float _nextCheckTime = 0f;
 
     public void Awake()
     {
         Logger = base.Logger;
         Instance = this;
+
+        EnsureManagerObjectHidden();
 
         foreach (var assembly in AccessTools.AllAssemblies())
         {
@@ -69,14 +71,6 @@ public class Plugin : BaseUnityPlugin
         Logger.LogInfo($"Plugin {ModName} is loaded!");
     }
 
-    public void OnDestroy()
-    {
-        _harmony?.UnpatchSelf();
-        Unconscious?.Icon.Dispose();
-        Sleeping?.Icon.Dispose();
-        Instance = null;
-    }
-
     public void Update()
     {
         if (Unconscious.Enabled.Value)
@@ -90,10 +84,9 @@ public class Plugin : BaseUnityPlugin
         if (!Unconscious.Enabled.Value && !Sleeping.Enabled.Value)
             return;
 
-        _t += Time.unscaledDeltaTime;
-        if (_t < 3f)
+        if (Time.realtimeSinceStartup < _nextCheckTime)
             return;
-        _t = 0f;
+        _nextCheckTime = Time.realtimeSinceStartup + 3f;
 
         foreach (var body in FindObjectsByType<Body>(FindObjectsSortMode.None))
         {
@@ -133,50 +126,62 @@ public class Plugin : BaseUnityPlugin
 
     private static bool TryLoadingMpModFields(Assembly assembly)
     {
-        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Con)}", out MpModCon))
+        try
+        {
+            MpModNetBody = GetType(assembly, $"{nameof(Together)}.{nameof(Together.NetBody)}");
+            MpModScavPlayer = GetType(assembly, $"{nameof(Together)}.{nameof(Together.ScavPlayer)}");
+            MpModColor24 = GetType(assembly, $"{nameof(Together)}.{nameof(Together.Color24)}");
+            var mpModNet = GetType(assembly, $"{nameof(Together)}.{nameof(Together.Net)}");
+            MpModNetworkIsRunningGetter = GetGetter(mpModNet, nameof(Together.Net.IsRunning));
+            MpModIsPlayerGetter = GetGetter(MpModNetBody, nameof(Together.NetBody.IsPlayer));
+            MpModPlayerGetter = GetGetter(MpModNetBody, nameof(Together.NetBody.plr));
+            MpModPlayerColorField = GetField(MpModScavPlayer, nameof(Together.ScavPlayer.playerColor));
+            MpModToColorWithAlpha = GetMethod(MpModColor24, nameof(Together.Color24.ToColorWithAlpha), [typeof(float)]);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning($"Exception thrown while obtaining MP mod references: " + ex.Message);
             return false;
-        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.NetBody)}", out MpModNetBody))
-            return false;
-        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.ScavPlayer)}", out MpModScavPlayer))
-            return false;
-        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Color24)}", out MpModColor24))
-            return false;
-        if (!TryGetType(assembly, $"{nameof(Together)}.{nameof(Together.Net)}", out Type mpModNet))
-            return false;
-        if (!TryGetGetter(mpModNet, nameof(Together.Net.IsRunning), out MpModNetworkIsRunningGetter))
-            return false;
-        if (!TryGetGetter(MpModNetBody, nameof(Together.NetBody.IsPlayer), out MpModIsPlayerGetter))
-            return false;
-        if (!TryGetGetter(MpModNetBody, nameof(Together.NetBody.plr), out MpModPlayerGetter))
-            return false;
-        if (!TryGetField(MpModScavPlayer, nameof(Together.ScavPlayer.playerColor), out MpModPlayerColorField))
-            return false;
-        if (!TryGetMethod(MpModColor24, nameof(Together.Color24.ToColorWithAlpha), [typeof(float)], out MpModToColorWithAlpha))
-            return false;
+        }
         return true;
     }
 
-    public static bool TryGetType(Assembly assembly, string name, out Type type)
+    private static Type GetType(Assembly assembly, string name)
     {
-        type = assembly.GetType(name, throwOnError: false);
-        return type != null;
+        var type = assembly.GetType(name, throwOnError: false);
+        return type ?? throw new NullReferenceException($"Couldn't find type \"{name}\"!");
     }
 
-    public static bool TryGetGetter(Type type, string name, out MethodInfo getter)
+    private static MethodInfo GetGetter(Type type, string name)
     {
-        getter = AccessTools.PropertyGetter(type, name);
-        return getter != null;
+        var getter = AccessTools.PropertyGetter(type, name);
+        return getter ?? throw new NullReferenceException($"Couldn't find getter \"{name}\"!");
     }
 
-    public static bool TryGetField(Type type, string name, out FieldInfo field)
+    private static FieldInfo GetField(Type type, string name)
     {
-        field = AccessTools.Field(type, name);
-        return field != null;
+        var field = AccessTools.Field(type, name);
+        return field ?? throw new NullReferenceException($"Couldn't find field \"{name}\"!");
     }
 
-    public static bool TryGetMethod(Type type, string name, Type[] parameters, out MethodInfo method)
+    private static MethodInfo GetMethod(Type type, string name, Type[] parameters)
     {
-        method = AccessTools.Method(type, name, parameters);
-        return method != null;
+        var method = AccessTools.Method(type, name, parameters);
+        return method ?? throw new NullReferenceException($"Couldn't find method \"{name}\"!");
+    }
+
+    private static void EnsureManagerObjectHidden()
+    {
+        var config = new ConfigFile(Paths.BepInExConfigPath, false)
+        {
+            SaveOnConfigSet = false
+        };
+        var entry = config.Bind("Chainloader", "HideManagerGameObject", false,
+            "If enabled, hides BepInEx Manager GameObject from Unity.");
+        if (entry.Value)
+            return;
+        Instance.gameObject.hideFlags = HideFlags.HideAndDontSave;
+        entry.Value = true;
+        config.Save();
     }
 }

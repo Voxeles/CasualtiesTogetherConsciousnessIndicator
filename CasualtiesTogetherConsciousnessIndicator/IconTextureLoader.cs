@@ -34,7 +34,7 @@ internal sealed class IconTextureLoader : IDisposable
             if (!File.Exists(path))
             {
                 File.WriteAllBytes(path, GetFallbackImage());
-                Plugin.PrintWarning($"Created a fallback icon at {path}. Replace it with your own image.");
+                Plugin.PrintWarning($"Created a fallback icon at:\n {path}.\n Replace it with your own image.");
             }
 
             var writeTime = File.GetLastWriteTimeUtc(path);
@@ -49,7 +49,7 @@ internal sealed class IconTextureLoader : IDisposable
         catch (Exception ex)
         {
             Object.Destroy(texture);
-            Plugin.PrintWarning($"Failed to load {path}:\n\t{ex.Message}");
+            Plugin.PrintWarning($"Failed to load:\n {path}:\n {ex.Message}");
             if (Sprite != null)
                 return;
 

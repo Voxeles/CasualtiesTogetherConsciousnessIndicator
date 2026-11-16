@@ -3,7 +3,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <BepInExPluginGuid>cump.consciousness.indicator</BepInExPluginGuid>
     <ProjectName>CasualtiesTogetherConsciousnessIndicator</ProjectName>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <AssemblyName>$(ProjectName)</AssemblyName>
     <Product>$(ProjectName)</Product>
     <BepInExPluginName>$(ProjectName)</BepInExPluginName>

@@ -31,7 +31,7 @@ internal sealed class IndicatorSettings
         Scale = config.Bind(
             section,
             "Scale",
-            6f,
+            7f,
             "The scale of the icons");
         AnimationType = config.Bind(
             section,
